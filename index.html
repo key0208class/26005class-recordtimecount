@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蓮小終點計時組 v1.9.0 (附線上碼表)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        //
+        //    👉 請將您在 Firebase 步驟 2 複製的 `firebaseConfig` 貼在這裡
+        //
+        const firebaseConfig = {
+          apiKey: "AIzaSyDwVzBE6JSC9UhFQ2rGyzRX1wCae-YhUYI",
+          authDomain: "myclass26005-recordtime.firebaseapp.com",
+          databaseURL: "https://myclass26005-recordtime-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "myclass26005-recordtime",
+          storageBucket: "myclass26005-recordtime.firebasestorage.app",
+          messagingSenderId: "902094530267",
+          appId: "1:902094530267:web:ad4d7709c1835d02564efe"
+        };
+        //
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+        // 初始化 Firebase
+        try {
+            if (typeof firebaseConfig !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                console.log("Firebase 初始化成功！");
+            } else {
+                console.warn("Firebase Config 未設定，將以本機模式運行。");
+            }
+        } catch (e) {
+            console.error("Firebase 初始化失敗:", e);
+        }
+    </script>
+    
+    <style>
+        /* === v1.5.1 基礎樣式 === */
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f3f4f6; font-size: 17px; }
+        .modal { transition: opacity 0.25s ease, transform 0.25s ease; }
+        .modal-content { transition: transform 0.25s ease; }
+        .modal.hidden { opacity: 0; transform: scale(0.95); pointer-events: none; }
+        .modal.visible { opacity: 1; transform: scale(1); }
+        
+        /* Toast */
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; font-size: 16px; z-index: 200; opacity: 0; transition: opacity 0.3s ease, bottom 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .toast.show { opacity: 1; bottom: 40px; }
+        .toast-success { background-color: #28a745; color: white; }
+        .toast-error { background-color: #dc3545; color: white; }
+
+        /* 表格樣式 */
+        .time-cell { 
+            cursor: pointer; text-align: center; padding: 12px 6px; 
+            font-family: 'monospace', 'Courier New'; font-size: 1.2rem; 
+            transition: background-color 0.2s ease, color 0.2s ease; 
+            min-width: 100px; vertical-align: top; 
+        }
+        tr:not(.row-complete-highlight) .time-cell:hover { background-color: #eff6ff; }
+        .time-cell.error { color: #ef4444; font-weight: bold; background-color: #fee2e2; animation: pulse-red 0.8s ease-in-out; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        
+        .time-cell-placeholder { color: #d1d5db; font-size: 1.3rem; font-weight: 600; line-height: 1.4; }
+        
+        /* 按鈕與圖示 */
+        .event-name-input { border: 1px solid #3b82f6; border-radius: 4px; padding: 4px 8px; width: 95%; }
+        .cell-action-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 6px; transition: background-color 0.2s; }
+        .cell-action-btn:hover { background-color: #e5e7eb; }
+        .cell-action-btn svg { width: 1.25rem; height: 1.25rem; }
+        .btn-icon-edit { color: #3b82f6; }
+        .btn-icon-save { color: #16a34a; }
+        .btn-icon-delete { color: #dc2626; }
+        .header-action-btn { display: inline-flex; align-items: center; justify-content: center; background-color: #4f46e5; color: white; font-weight: 500; padding: 6px; border-radius: 6px; transition: background-color 0.2s; width: 32px; height: 32px; cursor: pointer; font-size: 1.25rem; line-height: 1; }
+        .header-action-btn:hover { background-color: #4338ca; }
+
+        /* 快照與狀態 */
+        .saved-record-item { display: flex; align-items: center; background-color: #fdfba2; border: 1px solid #e7d98b; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s ease; }
+        .saved-record-item:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .saved-record-btn { background: none; border: none; color: #725a03; padding: 4px 10px; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+        .saved-record-btn:hover { background-color: #fcf891; }
+        .delete-record-btn { background: #fcf891; color: #a18a07; padding: 4px 8px; border: none; border-left: 1px solid #e7d98b; cursor: pointer; height: 100%; transition: background-color 0.2s, color 0.2s; }
+        .delete-record-btn:hover { background: #ef4444; color: white; }
+        .delete-record-btn svg { width: 1rem; height: 1rem; }
+        
+        .btn-disabled { opacity: 0.6; cursor: not-allowed; background-color: #9ca3af; }
+        .btn-disabled:hover { background-color: #9ca3af; }
+        
+        .conflict-btn-container { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 4px; }
+        .conflict-btn { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 6px; padding: 2px 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 500; transition: background-color 0.2s, color 0.2s; }
+        .conflict-btn:hover { background-color: #fee2e2; color: #991b1b; }
+        .conflict-btn svg { width: 1rem; height: 1rem; }
+        .cell-sort-btn { background-color: #fef2f2; color: #b91c1c; border: none; padding: 4px; border-radius: 6px; transition: background-color 0.2s; cursor: pointer; }
+        .cell-sort-btn:hover { background-color: #fee2e2; }
+        .cell-sort-btn svg { width: 1.25rem; height: 1.25rem; }
+        
+        .connection-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; padding: 4px 10px; border-radius: 12px; font-weight: 500; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; animation: pulse-animation 2s infinite; }
+        .status-connected { background-color: #dcfce7; color: #166534; }
+        .status-connected .status-dot { background-color: #22c55e; }
+        .status-disconnected { background-color: #fee2e2; color: #991b1b; }
+        .status-disconnected .status-dot { background-color: #ef4444; }
+        @keyframes pulse-animation { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .admin-status { display: inline-flex; align-items: center; gap: 5px; font-size: 0.875rem; padding: 4px 10px; border-radius: 12px; font-weight: 500; background-color: #f3e8ff; color: #581c87; border: 1px solid #e9d5ff; }
+        .admin-status svg { width: 1rem; height: 1rem; }
+        
+        .row-complete-highlight { background-color: #dcfce7 !important; }
+        .row-complete-highlight:hover { background-color: #bbf7d0 !important; }
+
+        /* === 【v1.9.0】懸浮碼表樣式 === */
+        /* 這裡可以調整碼表的位置與顏色 */
+        #stopwatch-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50; /* 比 Toast (200) 低，但比表格高 */
+            display: flex;
+            flex-direction: column;
+            align-items: end;
+            gap: 8px;
+        }
+        
+        .sw-main-panel {
+            background-color: #1f2937; /* 深灰底色 */
+            color: #f3f4f6;           /* 亮白文字 */
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border: 2px solid #374151;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: bottom right;
+            min-width: 240px;
+        }
+        
+        .sw-main-panel.minimized {
+            transform: scale(0);
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+        }
+
+        .sw-time-display {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            color: #60a5fa; /* 數字顏色 (藍色) */
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sw-controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .sw-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .sw-btn:active { transform: scale(0.95); }
+        
+        /* 按鈕顏色 */
+        .sw-btn-start { background-color: #10b981; color: white; } /* 綠色 */
+        .sw-btn-start:hover { background-color: #059669; }
+        
+        .sw-btn-pause { background-color: #f59e0b; color: white; } /* 黃色 */
+        .sw-btn-pause:hover { background-color: #d97706; }
+        
+        .sw-btn-reset { background-color: #4b5563; color: #d1d5db; width: 48px; height: 48px; font-size: 1.25rem; } /* 灰色 */
+        .sw-btn-reset:hover { background-color: #374151; color: white; }
+
+        .sw-toggle-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: #2563eb;
+            color: white;
+            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+            transition: all 0.3s;
+            border: 2px solid white;
+            z-index: 51;
+        }
+        .sw-toggle-btn:hover { background-color: #1d4ed8; transform: scale(1.05); }
+        .sw-toggle-btn.active { background-color: #ef4444; } /* 展開時變紅色 */
+
+        /* 列印設定 */
+        @media print {
+            body { font-size: 12px; background-color: white; }
+            header, footer, #event-modal, #time-input-modal, #save-record-modal, #custom-confirm-modal, #actions-modal, #btn-open-modal, #toast-container, #password-modal, #stopwatch-widget, .no-print {
+                display: none !important;
+            }
+            .container { max-w-full; padding: 0; margin: 0; }
+            .bg-white { box-shadow: none; border-radius: 0; overflow: visible; }
+            .overflow-x-auto { overflow: visible; }
+            table { width: 100%; min-width: 0; border-collapse: collapse; border: 1px solid #ccc; }
+            th, td { border: 1px solid #ccc; padding: 6px 8px; font-size: 11px; }
+            thead { background-color: #e5e7eb !important; color: #1f2937 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            tr { page-break-inside: avoid; }
+            .time-cell { font-size: 11.5px; min-width: auto; padding: 6px 4px; }
+            .time-cell-placeholder { display: none; }
+            .event-name-input, .cell-action-btn, .conflict-btn-container, .cell-sort-btn { display: none; }
+            .row-complete-highlight { background-color: #dcfce7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 sm:p-8">
+
+    <div id="toast-container"></div>
+
+    <div id="stopwatch-widget" class="no-print">
+        <div id="sw-panel" class="sw-main-panel minimized">
+            <div class="flex justify-between items-center mb-2 border-b border-gray-600 pb-2">
+                <span class="text-xs font-bold text-gray-400 tracking-wider uppercase">Local Stopwatch</span>
+                <span class="text-xs text-gray-500">僅本機有效</span>
+            </div>
+            <div id="sw-display" class="sw-time-display">00:00.00</div>
+            <div class="sw-controls">
+                <button id="sw-btn-reset" class="sw-btn sw-btn-reset" title="歸零">🔄</button>
+                <button id="sw-btn-start" class="sw-btn sw-btn-start" title="開始">▶️</button>
+                <button id="sw-btn-pause" class="sw-btn sw-btn-pause hidden" title="暫停">⏸️</button>
+            </div>
+        </div>
+        
+        <button id="sw-toggle-btn" class="sw-toggle-btn" title="開啟/關閉 碼表">
+            ⏱️
+        </button>
+    </div>
+
+    <div class="container mx-auto max-w-7xl">
+        
+        <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3 flex-wrap">
+                <h1 class="text-3xl font-bold text-gray-800">🏅 蓮小終點計時組 v1.9.0</h1>
+                
+                <div id="connection-status-container" class="no-print">
+                    <div class="connection-status status-disconnected">
+                        <div class="status-dot"></div>
+                        <span>離線</span>
+                    </div>
+                </div>
+                
+                <div id="admin-mode-badge" class="hidden no-print">
+                    <div class="admin-status">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"></path></svg>
+                        <span>管理者模式</span>
+                    </div>
+                </div>
+
+                <div id="cloud-snapshots-container" class="flex flex-wrap gap-2 items-center"></div>
+            </div>
+
+            <div class="flex items-center bg-white rounded-lg shadow-sm p-2 gap-2 no-print">
+                <span class="text-gray-700 mr-2 font-medium">顯示名次：</span>
+                <button id="btn-rank-minus" class="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                </button>
+                <span id="rank-count-display" class="mx-2 text-lg font-bold text-blue-600 w-8 text-center">7</span>
+                <button id="btn-rank-plus" class="bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table id="events-table" class="w-full min-w-[1000px]">
+                    <thead class="bg-blue-600 text-white"></thead>
+                    <tbody id="events-table-body" class="text-gray-700"></tbody>
+                </table>
+            </div>
+            <footer class="p-4 border-t border-gray-200 no-print">
+                <button id="btn-open-modal" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>新增項目</span>
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="event-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 sm:p-8 transform">
+            <header class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">新增運動項目 🏃</h2>
+                <button id="btn-close-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            <form id="event-form">
+                <div class="space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label for="select-grade" class="block text-sm font-medium text-gray-700 mb-1">年級</label>
+                            <select id="select-grade" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="一">一年級</option><option value="二">二年級</option><option value="三">三年級</option><option value="四">四年級</option><option value="五">五年級</option><option value="六">六年級</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="select-gender" class="block text-sm font-medium text-gray-700 mb-1">性別</label>
+                            <select id="select-gender" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="男">男生</option><option value="女">女生</option><option value="混">混合</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="select-event" class="block text-sm font-medium text-gray-700 mb-1">項目</label>
+                            <select id="select-event" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="60M">60M</option><option value="100M">100M</option><option value="200M">200M</option><option value="400M接力">400M接力</option><option value_A="大隊接力A">大隊接力A</option><option value="大隊接力B">大隊接力B</option><option value="趣味競賽">趣味競賽</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="input-custom-name" class="block text-sm font-medium text-gray-700 mb-1">自訂項目名稱 (單項)</label>
+                        <input type="text" id="input-custom-name" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="例如：二年級60m趣味賽跑">
+                    </div>
+                    <div class="flex items-center">
+                        <span class="flex-grow border-t border-gray-300"></span>
+                        <span class="mx-4 text-gray-500 text-sm">或</span>
+                        <span class="flex-grow border-t border-gray-300"></span>
+                    </div>
+                    <div>
+                        <label for="batch-event-input" class="block text-sm font-medium text-gray-700 mb-1">批次項目輸入 (每行一個)</label>
+                        <textarea id="batch-event-input" rows="5" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="三女100m&#10;三男100m&#10;四女100m..."></textarea>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-4">
+                        <button type="button" id="btn-cancel-modal" class="bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                        <button type="submit" id="btn-save-event" class="bg-blue-600 text-white hover:bg-blue-700 font-medium py-2 px-5 rounded-lg transition duration-200">儲存項目</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="time-input-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 sm:p-8 transform">
+            <h2 id="time-modal-title" class="text-xl font-bold text-gray-800 mb-4">輸入時間 (第 1 名)</h2>
+            
+            <div class="mb-6 flex justify-center">
+                <button type="button" id="btn-import-stopwatch" class="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-bold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2">
+                    <span class="text-xl">⏱️</span>
+                    <span>帶入碼表時間</span>
+                </button>
+            </div>
+            <form id="time-input-form">
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label for="time-min" class="block text-sm font-medium text-gray-700 text-center">分 (M)</label>
+                        <input type="number" id="time-min" min="0" max="59" class="w-full text-center text-lg p-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="time-sec" class="block text-sm font-medium text-gray-700 text-center">秒 (S)</label>
+                        <input type="number" id="time-sec" min="0" max="59" class="w-full text-center text-lg p-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="time-cs" class="block text-sm font-medium text-gray-700 text-center">毫秒 (CS)</label>
+                        <input type="number" id="time-cs" min="0" max="99" class="w-full text-center text-lg p-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center pt-6">
+                    <button type="button" id="btn-delete-time" class="bg-red-100 text-red-700 hover:bg-red-200 font-medium py-2 px-5 rounded-lg transition duration-200">刪除</button>
+                    <div class="flex gap-3">
+                        <button type="button" id="btn-cancel-time" class="bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                        <button type="submit" class="bg-blue-600 text-white hover:bg-blue-700 font-medium py-2 px-5 rounded-lg transition duration-200">儲存</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="save-record-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 sm:p-8 transform">
+            <h2 class="text-xl font-bold text-gray-800 mb-6">儲存雲端快照 ☁️</h2>
+            <form id="save-record-form">
+                <div>
+                    <label for="record-title" class="block text-sm font-medium text-gray-700 mb-1">紀錄標題</label>
+                    <input type="text" id="record-title" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="例如：11/28 上午 (雲端快照)" required>
+                </div>
+                <div class="flex justify-end gap-3 pt-6">
+                    <button type="button" id="btn-cancel-save-record" class="bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                    <button type="submit" class="bg-blue-600 text-white hover:bg-blue-700 font-medium py-2 px-5 rounded-lg transition duration-200">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="custom-confirm-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md p-6 sm:p-8 transform">
+            <div class="flex items-start gap-4">
+                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0">
+                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" /></svg>
+                </div>
+                <div class="mt-0 sm:ml-4 text-left">
+                    <h3 class="text-xl font-semibold leading-6 text-gray-900" id="custom-confirm-title">確認刪除</h3>
+                    <div class="mt-2"><p class="text-base text-gray-600" id="custom-confirm-message">您確定要執行此操作嗎？此動作無法復原。</p></div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" id="custom-confirm-cancel" class="bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                <button type="button" id="custom-confirm-ok" class="bg-red-600 text-white hover:bg-red-700 font-medium py-2 px-5 rounded-lg transition duration-200 btn-disabled" disabled>確定刪除 (3)</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="actions-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-xs p-6 transform">
+            <header class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">操作選單 ⚙️</h2>
+                <button id="btn-close-actions-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            <div class="space-y-3">
+                <button id="btn-action-save" class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    ☁️ 儲存 (雲端快照)
+                </button>
+                <button id="btn-action-export-html" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    網頁 (HTML)
+                </button>
+                <button id="btn-action-delete-all" class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    刪除全部項目
+                </button>
+                <button id="btn-action-logout-admin" class="w-full hidden flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"></path></svg>
+                    退出管理者模式
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-xs p-6 sm:p-8 transform">
+            <h2 class="text-xl font-bold text-gray-800 mb-6">🔒 需要權限</h2>
+            <form id="password-form">
+                <div>
+                    <label for="password-input" class="block text-sm font-medium text-gray-700 mb-1">請輸入密碼</label>
+                    <input type="password" id="password-input" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <p id="password-error" class="text-red-500 text-sm mt-2 hidden">密碼錯誤</p>
+                </div>
+                <div class="flex justify-end gap-3 pt-6">
+                    <button type="button" id="btn-cancel-password" class="bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                    <button type="submit" class="bg-blue-600 text-white hover:bg-blue-700 font-medium py-2 px-5 rounded-lg transition duration-200">確認</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            let db; 
+            const APP_DATA_PATH = 'appData'; 
+            const SNAPSHOTS_PATH = 'cloudSnapshots'; 
+            const isFirebaseEnabled = (typeof firebase !== 'undefined' && typeof firebaseConfig !== 'undefined');
+            if (isFirebaseEnabled) {
+                try {
+                    db = firebase.database();
+                } catch(e) { console.error("無法取得 Firebase Database 實例:", e); }
+            }
+
+            // --- State ---
+            let state = {
+                rankCount: 7, maxRank: 12, minRank: 1,
+                events: [],
+                editingTime: { eventIndex: null, rank: null },
+                confirmCallback: null, confirmInterval: null, 
+                deleteTimeConfirmation: false, deleteTimeTimeout: null,
+                passwordCallback: null,
+                isAdminAuthenticated: false,
+                // 【v1.9.0】碼表狀態
+                stopwatch: {
+                    isRunning: false,
+                    startTime: 0,
+                    elapsedTime: 0, // in ms
+                    intervalId: null,
+                    isExpanded: false
+                }
+            };
+
+            // --- DOM Elements ---
+            const rankCountDisplay = document.getElementById('rank-count-display');
+            const btnRankMinus = document.getElementById('btn-rank-minus');
+            const btnRankPlus = document.getElementById('btn-rank-plus');
+            const tableHead = document.querySelector('#events-table thead');
+            const tableBody = document.getElementById('events-table-body');
+            const toastContainer = document.getElementById('toast-container');
+            
+            // Modals
+            const eventModal = document.getElementById('event-modal');
+            const btnOpenModal = document.getElementById('btn-open-modal');
+            const btnCloseModal = document.getElementById('btn-close-modal');
+            const btnCancelModal = document.getElementById('btn-cancel-modal');
+            const eventForm = document.getElementById('event-form');
+            const selectGrade = document.getElementById('select-grade');
+            const selectGender = document.getElementById('select-gender');
+            const selectEvent = document.getElementById('select-event');
+            const inputCustomName = document.getElementById('input-custom-name');
+            const batchEventInput = document.getElementById('batch-event-input');
+            
+            const timeInputModal = document.getElementById('time-input-modal');
+            const timeModalTitle = document.getElementById('time-modal-title');
+            const timeInputForm = document.getElementById('time-input-form');
+            const timeMin = document.getElementById('time-min');
+            const timeSec = document.getElementById('time-sec');
+            const timeCs = document.getElementById('time-cs');
+            const btnCancelTime = document.getElementById('btn-cancel-time');
+            const btnDeleteTime = document.getElementById('btn-delete-time');
+            const btnImportStopwatch = document.getElementById('btn-import-stopwatch'); // 【v1.9.0】
+            
+            // Cloud Snapshots
+            const cloudSnapshotsContainer = document.getElementById('cloud-snapshots-container');
+            const saveRecordModal = document.getElementById('save-record-modal');
+            const saveRecordForm = document.getElementById('save-record-form');
+            const recordTitleInput = document.getElementById('record-title');
+            const btnCancelSaveRecord = document.getElementById('btn-cancel-save-record');
+            
+            // Confirm Modal
+            const customConfirmModal = document.getElementById('custom-confirm-modal');
+            const customConfirmTitle = document.getElementById('custom-confirm-title');
+            const customConfirmMessage = document.getElementById('custom-confirm-message');
+            const customConfirmCancel = document.getElementById('custom-confirm-cancel');
+            const customConfirmOk = document.getElementById('custom-confirm-ok');
+            
+            // Actions & Password
+            const actionsModal = document.getElementById('actions-modal');
+            const btnCloseActionsModal = document.getElementById('btn-close-actions-modal');
+            const btnActionSave = document.getElementById('btn-action-save');
+            const btnActionExportHtml = document.getElementById('btn-action-export-html');
+            const btnActionDeleteAll = document.getElementById('btn-action-delete-all');
+            const connectionStatusContainer = document.getElementById('connection-status-container');
+            const passwordModal = document.getElementById('password-modal');
+            const passwordForm = document.getElementById('password-form');
+            const passwordInput = document.getElementById('password-input');
+            const passwordError = document.getElementById('password-error');
+            const btnCancelPassword = document.getElementById('btn-cancel-password');
+            const adminModeBadge = document.getElementById('admin-mode-badge'); 
+            const btnActionLogoutAdmin = document.getElementById('btn-action-logout-admin');
+
+            // 【v1.9.0】Stopwatch DOM
+            const swToggleBtn = document.getElementById('sw-toggle-btn');
+            const swPanel = document.getElementById('sw-panel');
+            const swDisplay = document.getElementById('sw-display');
+            const swBtnStart = document.getElementById('sw-btn-start');
+            const swBtnPause = document.getElementById('sw-btn-pause');
+            const swBtnReset = document.getElementById('sw-btn-reset');
+
+            // --- Helpers ---
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-error'}`;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => { toast.classList.add('show'); }, 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.addEventListener('transitionend', () => toast.parentNode?.removeChild(toast));
+                }, 3000);
+            }
+
+            function formatMillis(ms) {
+                if (ms === undefined || ms === null || isNaN(ms)) { return ""; }
+                const totalCentiseconds = Math.round(ms / 10);
+                const minutes = Math.floor(totalCentiseconds / 6000);
+                const remainingCentiseconds = totalCentiseconds % 6000;
+                const seconds = Math.floor(remainingCentiseconds / 100);
+                const centiseconds = remainingCentiseconds % 100;
+                const pad = (n) => String(n).padStart(2, '0');
+                if (minutes > 0) {
+                    return `${pad(minutes)}'${pad(seconds)}"${pad(centiseconds)}`;
+                } else {
+                    return `${pad(seconds)}"${pad(centiseconds)}`;
+                }
+            }
+            
+            // 【v1.9.0】碼表時間格式化 (MM:SS.CS)
+            function formatStopwatchTime(ms) {
+                const totalCentiseconds = Math.floor(ms / 10);
+                const minutes = Math.floor(totalCentiseconds / 6000);
+                const remainingCentiseconds = totalCentiseconds % 6000;
+                const seconds = Math.floor(remainingCentiseconds / 100);
+                const centiseconds = remainingCentiseconds % 100;
+                const pad = (n) => String(n).padStart(2, '0');
+                return `${pad(minutes)}:${pad(seconds)}.${pad(centiseconds)}`;
+            }
+
+            function parseTime(min, sec, cs) {
+                min = parseInt(min, 10) || 0;
+                sec = parseInt(sec, 10) || 0;
+                cs = parseInt(cs, 10) || 0;
+                if (min === 0 && sec === 0 && cs === 0 && (timeMin.value === '' && timeSec.value === '' && timeCs.value === '')) {
+                     return null;
+                }
+                if (min === 0 && sec === 0 && cs === 0) return 0;
+                return (min * 60000) + (sec * 1000) + (cs * 10);
+            }
+
+            // --- Auth & Password ---
+            const ADMIN_PASSWORD = 'alp';
+            function openPasswordModal(callback) {
+                if (state.isAdminAuthenticated) { callback(); return; }
+                state.passwordCallback = callback;
+                passwordInput.value = '';
+                passwordError.classList.add('hidden');
+                passwordModal.classList.remove('hidden');
+                passwordModal.classList.add('visible');
+                passwordInput.focus();
+            }
+            function closePasswordModal() {
+                passwordModal.classList.remove('visible');
+                passwordModal.classList.add('hidden');
+                state.passwordCallback = null;
+            }
+            function handlePasswordSubmit(e) {
+                e.preventDefault();
+                if (passwordInput.value === ADMIN_PASSWORD) {
+                    state.isAdminAuthenticated = true;
+                    adminModeBadge.classList.remove('hidden');
+                    if (state.passwordCallback) state.passwordCallback();
+                    closePasswordModal();
+                    showToast('🔒 已進入管理者模式', 'success');
+                } else {
+                    passwordError.classList.remove('hidden');
+                    passwordInput.select();
+                }
+            }
+
+            // --- Confirm Modal ---
+            function showCustomConfirm(title, message, callback) {
+                customConfirmTitle.textContent = title;
+                customConfirmMessage.textContent = message;
+                state.confirmCallback = callback;
+                customConfirmOk.disabled = true;
+                customConfirmOk.classList.add('btn-disabled');
+                customConfirmOk.textContent = '確定 (3)';
+                let countdown = 3;
+                if (state.confirmInterval) { clearInterval(state.confirmInterval); }
+                state.confirmInterval = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        customConfirmOk.textContent = `確定 (${countdown})`;
+                    } else {
+                        clearInterval(state.confirmInterval);
+                        state.confirmInterval = null;
+                        customConfirmOk.textContent = '確定';
+                        customConfirmOk.disabled = false;
+                        customConfirmOk.classList.remove('btn-disabled');
+                    }
+                }, 1000);
+                customConfirmModal.classList.remove('hidden');
+                customConfirmModal.classList.add('visible');
+            }
+            function hideCustomConfirm() {
+                if (state.confirmInterval) { clearInterval(state.confirmInterval); state.confirmInterval = null; }
+                customConfirmModal.classList.remove('visible');
+                customConfirmModal.classList.add('hidden');
+                state.confirmCallback = null;
+            }
+
+            // --- Stopwatch Logic (v1.9.0) ---
+            
+            function updateStopwatchDisplay() {
+                let currentElapsed = state.stopwatch.elapsedTime;
+                if (state.stopwatch.isRunning) {
+                    const now = Date.now();
+                    currentElapsed += (now - state.stopwatch.startTime);
+                }
+                swDisplay.textContent = formatStopwatchTime(currentElapsed);
+            }
+
+            function startStopwatch() {
+                if (!state.stopwatch.isRunning) {
+                    state.stopwatch.isRunning = true;
+                    state.stopwatch.startTime = Date.now();
+                    
+                    // Update controls
+                    swBtnStart.classList.add('hidden');
+                    swBtnPause.classList.remove('hidden');
+                    
+                    state.stopwatch.intervalId = requestAnimationFrame(function loop() {
+                        if (state.stopwatch.isRunning) {
+                            updateStopwatchDisplay();
+                            state.stopwatch.intervalId = requestAnimationFrame(loop);
+                        }
+                    });
+                }
+            }
+
+            function pauseStopwatch() {
+                if (state.stopwatch.isRunning) {
+                    state.stopwatch.isRunning = false;
+                    cancelAnimationFrame(state.stopwatch.intervalId);
+                    const now = Date.now();
+                    state.stopwatch.elapsedTime += (now - state.stopwatch.startTime);
+                    
+                    updateStopwatchDisplay(); // show final paused time
+                    
+                    // Update controls
+                    swBtnStart.classList.remove('hidden');
+                    swBtnPause.classList.add('hidden');
+                }
+            }
+
+            function resetStopwatch() {
+                pauseStopwatch(); // Ensure it's stopped
+                state.stopwatch.elapsedTime = 0;
+                updateStopwatchDisplay();
+            }
+
+            function toggleStopwatchPanel() {
+                state.stopwatch.isExpanded = !state.stopwatch.isExpanded;
+                if (state.stopwatch.isExpanded) {
+                    swPanel.classList.remove('minimized');
+                    swToggleBtn.classList.add('active');
+                    swToggleBtn.innerHTML = '✖'; // Close icon
+                } else {
+                    swPanel.classList.add('minimized');
+                    swToggleBtn.classList.remove('active');
+                    swToggleBtn.innerHTML = '⏱️'; // Stopwatch icon
+                }
+            }
+
+            // Import Stopwatch time to modal inputs
+            function importStopwatchTime() {
+                // Check 1: Is it paused?
+                if (state.stopwatch.isRunning) {
+                    showToast('⚠️ 請先暫停碼表後，再進行帶入！', 'error');
+                    return;
+                }
+                // Check 2: Is it zero?
+                if (state.stopwatch.elapsedTime === 0) {
+                    showToast('⚠️ 碼表尚未計時 (00:00.00)', 'error');
+                    return;
+                }
+
+                const ms = state.stopwatch.elapsedTime;
+                const totalCentiseconds = Math.floor(ms / 10);
+                const minutes = Math.floor(totalCentiseconds / 6000);
+                const remainingCentiseconds = totalCentiseconds % 6000;
+                const seconds = Math.floor(remainingCentiseconds / 100);
+                const centiseconds = remainingCentiseconds % 100;
+
+                // Fill inputs
+                timeMin.value = minutes;
+                timeSec.value = seconds;
+                timeCs.value = centiseconds;
+                
+                showToast('✅ 已帶入碼表時間！請確認後儲存。');
+            }
+
+
+            // --- Rendering ---
+            function renderTable() { renderTableHeader(); renderTableBody(); }
+            function renderTableHeader() {
+                tableHead.innerHTML = '';
+                const tr = document.createElement('tr');
+                const thIndex = document.createElement('th');
+                thIndex.textContent = '序號';
+                thIndex.className = 'py-4 px-4 text-center w-16';
+                tr.appendChild(thIndex);
+                const thName = document.createElement('th');
+                thName.className = 'py-4 px-4 text-left min-w-[250px]';
+                const nameHeaderContainer = document.createElement('div');
+                nameHeaderContainer.className = 'flex justify-between items-center gap-2';
+                const spanName = document.createElement('span');
+                spanName.textContent = '項目';
+                spanName.className = 'text-base';
+                const headerActionsButton = document.createElement('button');
+                headerActionsButton.id = 'btn-open-actions-modal';
+                headerActionsButton.className = 'header-action-btn no-print';
+                headerActionsButton.title = '操作選單';
+                headerActionsButton.innerHTML = `⚙️`; 
+                nameHeaderContainer.appendChild(spanName);
+                nameHeaderContainer.appendChild(headerActionsButton);
+                thName.appendChild(nameHeaderContainer);
+                tr.appendChild(thName);
+                for (let i = 1; i <= state.rankCount; i++) {
+                    const thRank = document.createElement('th');
+                    thRank.textContent = `${i} 名`;
+                    thRank.className = 'py-4 px-3 text-center w-28';
+                    tr.appendChild(thRank);
+                }
+                tableHead.appendChild(tr);
+            }
+
+            function renderTableBody() {
+                tableBody.innerHTML = ''; 
+                const events = Array.isArray(state.events) ? state.events : [];
+                if (events.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 2 + state.rankCount; 
+                    td.textContent = '尚未新增任何項目，請點擊下方的「新增項目」按鈕。';
+                    td.className = 'text-center text-gray-500 p-8';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                    return;
+                }
+                events.forEach((event, index) => {
+                    if (!event) return; 
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-gray-200 transition duration-150';
+                    tr.dataset.eventIndex = index;
+                    if (index % 2 !== 0) tr.classList.add('bg-gray-50');
+                    
+                    // Index
+                    const tdIndex = document.createElement('td');
+                    tdIndex.textContent = String(index + 1).padStart(2, '0');
+                    tdIndex.className = 'py-3 px-4 text-center font-medium text-gray-600 text-lg';
+                    tr.appendChild(tdIndex);
+                    
+                    // Name
+                    const tdName = document.createElement('td');
+                    tdName.className = 'py-3 px-4 font-medium';
+                    const flexContainer = document.createElement('div');
+                    flexContainer.className = 'flex justify-between items-center';
+                    const nameContainer = document.createElement('div');
+                    const spanName = document.createElement('span');
+                    spanName.className = 'event-name text-lg';
+                    spanName.textContent = event.name;
+                    const inputName = document.createElement('input');
+                    inputName.type = 'text';
+                    inputName.className = 'event-name-input hidden text-lg';
+                    inputName.value = event.name;
+                    nameContainer.appendChild(spanName);
+                    nameContainer.appendChild(inputName);
+                    
+                    // Actions
+                    const buttonContainer = document.createElement('div');
+                    buttonContainer.className = 'flex gap-1 no-print';
+                    const sortBtnContainer = document.createElement('span');
+                    sortBtnContainer.id = `sort-btn-container-${index}`;
+                    sortBtnContainer.className = 'ml-1';
+                    const newPencilIconSVG = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.815 19.874a2.25 2.25 0 01-1.06.58L3 21l.546-2.828a2.25 2.25 0 01.58-1.06L16.862 4.487z" /></svg>`;
+                    buttonContainer.innerHTML = `
+                        <button class="cell-action-btn btn-icon-edit btn-toggle-edit-icon">${newPencilIconSVG}</button>
+                        <button class="cell-action-btn btn-icon-save btn-save-name-icon hidden"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></button>
+                        <button class="cell-action-btn btn-icon-delete btn-delete-event-icon hidden"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                    `;
+                    buttonContainer.prepend(sortBtnContainer);
+                    flexContainer.appendChild(nameContainer);
+                    flexContainer.appendChild(buttonContainer);
+                    tdName.appendChild(flexContainer);
+                    tr.appendChild(tdName);
+
+                    // Ranks
+                    for (let i = 1; i <= state.rankCount; i++) {
+                        const tdRank = document.createElement('td');
+                        tdRank.className = 'time-cell';
+                        tdRank.dataset.eventIndex = index;
+                        tdRank.dataset.rank = i;
+                        tdRank.id = `cell-${index}-${i}`;
+                        const timeInMs = (event.ranks && event.ranks[i]) ? event.ranks[i] : null;
+                        const timeTextNode = document.createElement('div');
+                        if (timeInMs === undefined || timeInMs === null) {
+                            timeTextNode.textContent = i; 
+                            timeTextNode.classList.add('time-cell-placeholder'); 
+                            tdRank.classList.add('empty');
+                        } else {
+                            timeTextNode.textContent = formatMillis(timeInMs);
+                        }
+                        const swapBtnContainer = document.createElement('div');
+                        swapBtnContainer.id = `swap-btn-container-${index}-${i}`;
+                        swapBtnContainer.className = 'conflict-btn-container';
+                        tdRank.appendChild(timeTextNode);
+                        tdRank.appendChild(swapBtnContainer);
+                        tr.appendChild(tdRank);
+                    }
+                    tableBody.appendChild(tr);
+                    validateEventRow(index);
+                });
+            }
+
+            function renderCloudSnapshots(snapshot) {
+                cloudSnapshotsContainer.innerHTML = '';
+                if (!snapshot.exists()) return;
+                const snapshots = snapshot.val();
+                const sortedKeys = Object.keys(snapshots).sort((a, b) => snapshots[b].createdAt - snapshots[a].createdAt);
+                sortedKeys.forEach(key => {
+                    const record = snapshots[key];
+                    const item = document.createElement('div');
+                    item.className = 'saved-record-item no-print';
+                    item.innerHTML = `
+                        <button class="saved-record-btn" data-key="${key}" title="載入此快照">☁️ ${record.title}</button>
+                        <button class="delete-record-btn" data-key="${key}" data-title="${record.title}" title="刪除此雲端快照"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    `;
+                    cloudSnapshotsContainer.appendChild(item);
+                });
+            }
+
+            // --- Actions ---
+            function updateRankCount(change) {
+                if (!isFirebaseEnabled) { showToast('離線模式無法操作', 'error'); return; }
+                const newCount = state.rankCount + change;
+                if (newCount >= state.minRank && newCount <= state.maxRank) {
+                    db.ref(`${APP_DATA_PATH}/rankCount`).set(newCount).catch(err => showToast(`錯誤: ${err.message}`, 'error'));
+                }
+            }
+            function openEventModal() { eventForm.reset(); eventModal.classList.remove('hidden'); eventModal.classList.add('visible'); }
+            function closeEventModal() { eventModal.classList.remove('visible'); eventModal.classList.add('hidden'); }
+            function handleSaveEvent(e) {
+                e.preventDefault();
+                if (!isFirebaseEnabled) { showToast('離線模式無法操作', 'error'); return; }
+                const batchInput = batchEventInput.value.trim();
+                let newEvents = [];
+                if (batchInput) {
+                    const eventNames = batchInput.split('\n').filter(name => name.trim() !== '');
+                    eventNames.forEach(name => newEvents.push({ name: name.trim(), ranks: {} }));
+                } else {
+                    const customName = inputCustomName.value.trim();
+                    let eventName = customName || `${selectGrade.value}${selectGender.value}${selectEvent.value}`;
+                    if (eventName) newEvents.push({ name: eventName, ranks: {} });
+                }
+                if (newEvents.length > 0) {
+                    const currentEvents = Array.isArray(state.events) ? [...state.events] : [];
+                    db.ref(`${APP_DATA_PATH}/events`).set(currentEvents.concat(newEvents)).then(() => { closeEventModal(); showToast(`成功新增 ${newEvents.length} 個項目！`); });
+                } else { showToast('請至少填寫一個項目', 'error'); }
+            }
+            function deleteEvent(eventIndex) {
+                if (!isFirebaseEnabled) return;
+                const currentEvents = [...state.events];
+                currentEvents.splice(eventIndex, 1);
+                db.ref(`${APP_DATA_PATH}/events`).set(currentEvents).then(() => showToast('項目已刪除'));
+            }
+            function deleteAllEvents() {
+                if (!isFirebaseEnabled) return;
+                db.ref(`${APP_DATA_PATH}/events`).set([]).then(() => showToast('已刪除所有項目'));
+            }
+            function toggleEditMode(tr, save = false) {
+                const spanName = tr.querySelector('.event-name');
+                const inputName = tr.querySelector('.event-name-input');
+                const btnToggleEdit = tr.querySelector('.btn-toggle-edit-icon');
+                const btnSaveName = tr.querySelector('.btn-save-name-icon');
+                const btnDeleteEvent = tr.querySelector('.btn-delete-event-icon');
+                spanName.classList.toggle('hidden', !save);
+                inputName.classList.toggle('hidden', save);
+                btnToggleEdit.classList.toggle('hidden', !save);
+                btnSaveName.classList.toggle('hidden', save);
+                btnDeleteEvent.classList.toggle('hidden', save);
+                if (!save) inputName.focus();
+            }
+            function saveEventName(eventIndex, tr) {
+                if (!isFirebaseEnabled) return;
+                const inputName = tr.querySelector('.event-name-input');
+                const newName = inputName.value.trim();
+                if (!newName) { showToast('名稱不可為空', 'error'); return; }
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/name`).set(newName).then(() => {
+                    tr.querySelector('.event-name').textContent = newName;
+                    toggleEditMode(tr, true);
+                    showToast('名稱已更新');
+                });
+            }
+            
+            function openTimeInputModal(eventIndex, rank) {
+                const event = state.events[eventIndex];
+                if (!event) return;
+                state.editingTime = { eventIndex, rank };
+                timeModalTitle.textContent = `輸入 ${event.name} (第 ${rank} 名)`;
+                const ms = (event.ranks && event.ranks[rank]) ? event.ranks[rank] : null;
+                if (ms !== undefined && ms !== null) {
+                    const totalCentiseconds = Math.round(ms / 10);
+                    timeMin.value = Math.floor(totalCentiseconds / 6000);
+                    const remainingCentiseconds = totalCentiseconds % 6000;
+                    timeSec.value = Math.floor(remainingCentiseconds / 100);
+                    timeCs.value = remainingCentiseconds % 100;
+                } else {
+                    timeInputForm.reset();
+                }
+                timeInputModal.classList.remove('hidden');
+                timeInputModal.classList.add('visible');
+                timeSec.focus();
+            }
+            function closeTimeInputModal() {
+                timeInputModal.classList.remove('visible');
+                timeInputModal.classList.add('hidden');
+                state.editingTime = { eventIndex: null, rank: null };
+                if (state.deleteTimeTimeout) { clearTimeout(state.deleteTimeTimeout); state.deleteTimeTimeout = null; }
+                state.deleteTimeConfirmation = false;
+                btnDeleteTime.textContent = '刪除';
+                btnDeleteTime.classList.remove('bg-red-500', 'text-white');
+                btnDeleteTime.classList.add('bg-red-100', 'text-red-700');
+            }
+            function handleSaveTime(e) {
+                e.preventDefault();
+                if (!isFirebaseEnabled) return;
+                const { eventIndex, rank } = state.editingTime;
+                const totalMs = parseTime(timeMin.value, timeSec.value, timeCs.value);
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/ranks/${rank}`).set(totalMs).then(() => closeTimeInputModal());
+            }
+            function handleDeleteTimeInternalLogic() {
+                if (!isFirebaseEnabled) return;
+                const { eventIndex, rank } = state.editingTime;
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/ranks/${rank}`).set(null).then(() => { closeTimeInputModal(); showToast('時間已清除'); });
+            }
+            
+            function validateEventRow(eventIndex) {
+                const event = state.events[eventIndex];
+                if (!event) return;
+                const tr = document.querySelector(`tr[data-event-index="${eventIndex}"]`);
+                if (!tr) return;
+                const ranks = event.ranks || {};
+                let lastValidTime = -1;
+                let lastValidRank = 0;
+                let errors = []; 
+                let conflictRanks = new Set(); 
+                let allRanksWithTime = [];
+                let allRanksFilled = true;
+                tr.classList.remove('row-complete-highlight'); 
+                for (let i = 1; i <= state.rankCount; i++) {
+                    const cell = document.getElementById(`cell-${eventIndex}-${i}`);
+                    if (cell) {
+                        cell.classList.remove('error');
+                        const swapContainer = document.getElementById(`swap-btn-container-${eventIndex}-${i}`);
+                        if (swapContainer) swapContainer.innerHTML = '';
+                    }
+                }
+                const sortContainer = document.getElementById(`sort-btn-container-${eventIndex}`);
+                if (sortContainer) sortContainer.innerHTML = '';
+                for (let i = 1; i <= state.rankCount; i++) {
+                    const currentTime = ranks[i];
+                    if (currentTime !== undefined && currentTime !== null) {
+                        allRanksWithTime.push({ rank: i, time: currentTime }); 
+                        if (lastValidTime !== -1 && currentTime < lastValidTime) {
+                            errors.push({ rank1: lastValidRank, rank2: i });
+                            conflictRanks.add(lastValidRank);
+                            conflictRanks.add(i);
+                        }
+                        lastValidTime = currentTime;
+                        lastValidRank = i;
+                    } else { allRanksFilled = false; }
+                }
+                conflictRanks.forEach(rank => {
+                    const cell = document.getElementById(`cell-${eventIndex}-${rank}`);
+                    if (cell) cell.classList.add('error');
+                });
+                if (errors.length > 0) {
+                    if (conflictRanks.size === 2) {
+                        const { rank1, rank2 } = errors[0];
+                        const swapContainer = document.getElementById(`swap-btn-container-${eventIndex}-${rank2}`);
+                        if (swapContainer) swapContainer.innerHTML = createSwapButton(eventIndex, rank1, rank2);
+                    } else if (conflictRanks.size > 2) {
+                        errors.forEach(({ rank1, rank2 }) => {
+                            const swapContainer = document.getElementById(`swap-btn-container-${eventIndex}-${rank2}`);
+                            if (swapContainer) swapContainer.innerHTML = createSwapButton(eventIndex, rank1, rank2);
+                        });
+                        if (sortContainer && allRanksWithTime.length > 1) sortContainer.innerHTML = createSortButton(eventIndex);
+                    }
+                }
+                if (allRanksFilled && conflictRanks.size === 0) tr.classList.add('row-complete-highlight');
+            }
+            
+            function createSwapButton(eventIndex, rank1, rank2) {
+                return `<button class="conflict-btn btn-swap" data-event-index="${eventIndex}" data-rank1="${rank1}" data-rank2="${rank2}" title="互換"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h18m-7.5-12L21 9m0 0L16.5 4.5M21 9H3"></path></svg> 互換</button>`;
+            }
+            function createSortButton(eventIndex) {
+                return `<button class="cell-sort-btn btn-sort-row" data-event-index="${eventIndex}" title="自動排序"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h14.25m-14.25 4.5h14.25M3 18h6.75"></path></svg></button>`;
+            }
+            function swapTimes(eventIndex, rank1, rank2) {
+                if (!isFirebaseEnabled) return;
+                const event = state.events[eventIndex];
+                const time1 = event.ranks[rank1], time2 = event.ranks[rank2];
+                const updates = {};
+                updates[`${APP_DATA_PATH}/events/${eventIndex}/ranks/${rank1}`] = time2;
+                updates[`${APP_DATA_PATH}/events/${eventIndex}/ranks/${rank2}`] = time1;
+                db.ref().update(updates);
+            }
+            function autoSortRow(eventIndex) {
+                if (!isFirebaseEnabled) return;
+                const event = state.events[eventIndex];
+                let ranksWithTime = [];
+                for (let rank in event.ranks) {
+                    if (event.ranks[rank] !== undefined && event.ranks[rank] !== null) {
+                        ranksWithTime.push({ rank: parseInt(rank), time: event.ranks[rank] });
+                    }
+                }
+                if (ranksWithTime.length < 2) return;
+                const originalRanks = ranksWithTime.map(item => item.rank);
+                const sortedTimes = ranksWithTime.map(item => item.time).sort((a, b) => a - b);
+                const newRanksObject = { ...event.ranks };
+                originalRanks.forEach((rank, index) => newRanksObject[rank] = sortedTimes[index]);
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/ranks`).set(newRanksObject).then(() => showToast('自動排序完成'));
+            }
+
+            function openSaveRecordModal() { recordTitleInput.value = ''; saveRecordModal.classList.remove('hidden'); saveRecordModal.classList.add('visible'); recordTitleInput.focus(); }
+            function closeSaveRecordModal() { saveRecordModal.classList.remove('visible'); saveRecordModal.classList.add('hidden'); }
+            function handleSaveCloudRecord(e) {
+                e.preventDefault();
+                if (!isFirebaseEnabled) return;
+                const title = recordTitleInput.value.trim();
+                if (!title) return;
+                const recordData = { events: JSON.parse(JSON.stringify(state.events)), rankCount: state.rankCount };
+                const snapshotObject = { title: title, data: recordData, createdAt: firebase.database.ServerValue.TIMESTAMP };
+                db.ref(SNAPSHOTS_PATH).push(snapshotObject).then(() => { closeSaveRecordModal(); showToast(`已儲存快照: ${title}`); });
+            }
+            function loadCloudSnapshot(key) {
+                if (!isFirebaseEnabled) return;
+                db.ref(`${SNAPSHOTS_PATH}/${key}`).once('value').then(snapshot => {
+                    if (!snapshot.exists()) return;
+                    const record = snapshot.val();
+                    showCustomConfirm('載入快照', `確定要載入 "${record.title}" 嗎？將覆蓋目前所有項目。`, () => {
+                        db.ref(APP_DATA_PATH).set(record.data).then(() => showToast('快照載入成功', 'success'));
+                    });
+                });
+            }
+            function deleteCloudSnapshot(key) {
+                if (!isFirebaseEnabled) return;
+                db.ref(`${SNAPSHOTS_PATH}/${key}`).remove().then(() => showToast('快照已刪除'));
+            }
+
+            function openActionsModal() {
+                if (state.isAdminAuthenticated) btnActionLogoutAdmin.classList.remove('hidden');
+                else btnActionLogoutAdmin.classList.add('hidden');
+                actionsModal.classList.remove('hidden'); actionsModal.classList.add('visible');
+            }
+            function closeActionsModal() { actionsModal.classList.remove('visible'); actionsModal.classList.add('hidden'); }
+            function logoutAdminMode() {
+                state.isAdminAuthenticated = false; adminModeBadge.classList.add('hidden');
+                btnActionLogoutAdmin.classList.add('hidden'); closeActionsModal(); showToast('已退出管理者模式', 'success');
+            }
+            
+            function handleExportHtml() {
+                if (!state.events || state.events.length === 0) { showToast('無資料可匯出', 'error'); return; }
+                const htmlContent = generateStaticHtml();
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `計時報表_${new Date().toISOString().slice(0,16).replace('T','_')}.html`;
+                link.click();
+            }
+            function generateStaticHtml() {
+                const rankCount = state.rankCount;
+                let ths = `<th style="padding:8px;border:1px solid #ccc;">序號</th><th style="padding:8px;border:1px solid #ccc;">項目</th>`;
+                for (let i = 1; i <= rankCount; i++) ths += `<th style="padding:8px;border:1px solid #ccc;">${i} 名</th>`;
+                let trs = '';
+                (state.events || []).forEach((event, index) => {
+                    let tds = `<td style="padding:6px;text-align:center;border:1px solid #ccc;">${index + 1}</td><td style="padding:6px;border:1px solid #ccc;">${event.name}</td>`;
+                    for (let i = 1; i <= rankCount; i++) {
+                        const ms = event.ranks ? event.ranks[i] : null;
+                        tds += `<td style="padding:6px;text-align:center;border:1px solid #ccc;">${formatMillis(ms)}</td>`;
+                    }
+                    trs += `<tr>${tds}</tr>`;
+                });
+                return `<html><head><title>報表</title><style>table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;}</style></head><body><h1>成績報表</h1><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></body></html>`;
+            }
+
+            // --- Event Listeners ---
+            btnRankMinus.addEventListener('click', () => updateRankCount(-1));
+            btnRankPlus.addEventListener('click', () => updateRankCount(1));
+            btnOpenModal.addEventListener('click', openEventModal);
+            btnCloseModal.addEventListener('click', closeEventModal);
+            btnCancelModal.addEventListener('click', closeEventModal);
+            eventModal.addEventListener('click', (e) => e.target === eventModal && closeEventModal());
+            eventForm.addEventListener('submit', handleSaveEvent);
+            timeInputForm.addEventListener('submit', handleSaveTime);
+            btnCancelTime.addEventListener('click', closeTimeInputModal);
+            timeInputModal.addEventListener('click', (e) => e.target === timeInputModal && closeTimeInputModal());
+            
+            btnDeleteTime.addEventListener('click', () => {
+                if (!state.deleteTimeConfirmation) {
+                    state.deleteTimeConfirmation = true;
+                    btnDeleteTime.textContent = '確認刪除？';
+                    btnDeleteTime.classList.replace('bg-red-100','bg-red-500');
+                    btnDeleteTime.classList.replace('text-red-700','text-white');
+                    state.deleteTimeTimeout = setTimeout(() => {
+                        state.deleteTimeConfirmation = false;
+                        btnDeleteTime.textContent = '刪除';
+                        btnDeleteTime.classList.replace('bg-red-500','bg-red-100');
+                        btnDeleteTime.classList.replace('text-white','text-red-700');
+                    }, 3000);
+                } else { handleDeleteTimeInternalLogic(); }
+            });
+            
+            tableBody.addEventListener('click', (e) => {
+                const target = e.target;
+                const tr = target.closest('tr');
+                if (!tr) return;
+                const eventIndex = parseInt(tr.dataset.eventIndex);
+                if (target.closest('.time-cell') && !target.closest('.conflict-btn')) {
+                    openTimeInputModal(eventIndex, parseInt(target.closest('.time-cell').dataset.rank));
+                } else if (target.closest('.btn-toggle-edit-icon')) { toggleEditMode(tr, false); }
+                else if (target.closest('.btn-save-name-icon')) { saveEventName(eventIndex, tr); }
+                else if (target.closest('.btn-delete-event-icon')) {
+                    showCustomConfirm('刪除', '確定刪除？', () => deleteEvent(eventIndex));
+                } else if (target.closest('.btn-swap')) {
+                    const { rank1, rank2 } = target.closest('.btn-swap').dataset;
+                    swapTimes(eventIndex, rank1, rank2);
+                } else if (target.closest('.btn-sort-row')) { autoSortRow(eventIndex); }
+            });
+            
+            tableHead.addEventListener('click', (e) => { if(e.target.closest('#btn-open-actions-modal')) openPasswordModal(openActionsModal); });
+            btnCloseActionsModal.addEventListener('click', closeActionsModal);
+            btnActionSave.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return showToast('無項目','error'); openSaveRecordModal(); });
+            btnActionExportHtml.addEventListener('click', () => { closeActionsModal(); handleExportHtml(); });
+            btnActionDeleteAll.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return; showCustomConfirm('刪除全部','確定？', deleteAllEvents); });
+            btnActionLogoutAdmin.addEventListener('click', logoutAdminMode);
+            
+            cloudSnapshotsContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if(!btn) return;
+                if(btn.classList.contains('saved-record-btn')) openPasswordModal(() => loadCloudSnapshot(btn.dataset.key));
+                else if(btn.classList.contains('delete-record-btn')) openPasswordModal(() => showCustomConfirm('刪除快照', '確定？', () => deleteCloudSnapshot(btn.dataset.key)));
+            });
+            
+            saveRecordForm.addEventListener('submit', handleSaveCloudRecord);
+            btnCancelSaveRecord.addEventListener('click', closeSaveRecordModal);
+            customConfirmOk.addEventListener('click', () => { if(state.confirmCallback) state.confirmCallback(); hideCustomConfirm(); });
+            customConfirmCancel.addEventListener('click', hideCustomConfirm);
+            passwordForm.addEventListener('submit', handlePasswordSubmit);
+            btnCancelPassword.addEventListener('click', closePasswordModal);
+
+            // --- Stopwatch Event Listeners (v1.9.0) ---
+            swToggleBtn.addEventListener('click', toggleStopwatchPanel);
+            swBtnStart.addEventListener('click', startStopwatch);
+            swBtnPause.addEventListener('click', pauseStopwatch);
+            swBtnReset.addEventListener('click', resetStopwatch);
+            btnImportStopwatch.addEventListener('click', importStopwatchTime);
+
+            // --- Init ---
+            function setupFirebaseListeners() {
+                db.ref(".info/connected").on("value", (snap) => {
+                    connectionStatusContainer.innerHTML = snap.val() === true 
+                        ? `<div class="connection-status status-connected"><div class="status-dot"></div><span>已連線</span></div>`
+                        : `<div class="connection-status status-disconnected"><div class="status-dot"></div><span>連線中斷</span></div>`;
+                });
+                db.ref(APP_DATA_PATH).on("value", (snapshot) => {
+                    const data = snapshot.val();
+                    state.events = (data && data.events) ? data.events : [];
+                    state.rankCount = (data && data.rankCount) ? data.rankCount : 7;
+                    rankCountDisplay.textContent = state.rankCount;
+                    renderTable();
+                });
+                db.ref(SNAPSHOTS_PATH).on('value', renderCloudSnapshots);
+            }
+
+            if (isFirebaseEnabled) {
+                setupFirebaseListeners();
+                showToast('v1.9.0 載入完成 (附線上碼表)', 'success');
+            } else {
+                renderTable();
+                showToast('本機離線模式', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
