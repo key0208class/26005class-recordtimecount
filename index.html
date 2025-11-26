@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v1.9.0 (附線上碼表)</title>
+    <title>蓮小終點計時組 v1.9.1 (線上碼表+專業報表)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -60,7 +60,9 @@
             transition: background-color 0.2s ease, color 0.2s ease; 
             min-width: 100px; vertical-align: top; 
         }
+        /* 修正 Hover 覆蓋高亮的問題 */
         tr:not(.row-complete-highlight) .time-cell:hover { background-color: #eff6ff; }
+        
         .time-cell.error { color: #ef4444; font-weight: bold; background-color: #fee2e2; animation: pulse-red 0.8s ease-in-out; }
         @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         
@@ -112,12 +114,11 @@
         .row-complete-highlight:hover { background-color: #bbf7d0 !important; }
 
         /* === 【v1.9.0】懸浮碼表樣式 === */
-        /* 這裡可以調整碼表的位置與顏色 */
         #stopwatch-widget {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            z-index: 50; /* 比 Toast (200) 低，但比表格高 */
+            z-index: 50; 
             display: flex;
             flex-direction: column;
             align-items: end;
@@ -176,14 +177,13 @@
         }
         .sw-btn:active { transform: scale(0.95); }
         
-        /* 按鈕顏色 */
-        .sw-btn-start { background-color: #10b981; color: white; } /* 綠色 */
+        .sw-btn-start { background-color: #10b981; color: white; }
         .sw-btn-start:hover { background-color: #059669; }
         
-        .sw-btn-pause { background-color: #f59e0b; color: white; } /* 黃色 */
+        .sw-btn-pause { background-color: #f59e0b; color: white; }
         .sw-btn-pause:hover { background-color: #d97706; }
         
-        .sw-btn-reset { background-color: #4b5563; color: #d1d5db; width: 48px; height: 48px; font-size: 1.25rem; } /* 灰色 */
+        .sw-btn-reset { background-color: #4b5563; color: #d1d5db; width: 48px; height: 48px; font-size: 1.25rem; }
         .sw-btn-reset:hover { background-color: #374151; color: white; }
 
         .sw-toggle-btn {
@@ -203,7 +203,7 @@
             z-index: 51;
         }
         .sw-toggle-btn:hover { background-color: #1d4ed8; transform: scale(1.05); }
-        .sw-toggle-btn.active { background-color: #ef4444; } /* 展開時變紅色 */
+        .sw-toggle-btn.active { background-color: #ef4444; }
 
         /* 列印設定 */
         @media print {
@@ -252,7 +252,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800">🏅 蓮小終點計時組 v1.9.0</h1>
+                <h1 class="text-3xl font-bold text-gray-800">🏅 蓮小終點計時組 v1.9.1</h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -1141,27 +1141,95 @@
             
             function handleExportHtml() {
                 if (!state.events || state.events.length === 0) { showToast('無資料可匯出', 'error'); return; }
-                const htmlContent = generateStaticHtml();
-                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `計時報表_${new Date().toISOString().slice(0,16).replace('T','_')}.html`;
-                link.click();
+                try {
+                    const htmlContent = generateStaticHtml();
+                    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+                    link.download = `蓮小終點計時組_報表_${timestamp}.html`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    showToast('HTML 靜態報表已下載', 'success');
+                } catch (err) {
+                    console.error('HTML 下載失敗:', err);
+                    showToast('HTML 下載失敗', 'error');
+                }
             }
+
+            // 【v1.9.1】升級版的報表輸出 (Ported from v1.8.1)
             function generateStaticHtml() {
                 const rankCount = state.rankCount;
-                let ths = `<th style="padding:8px;border:1px solid #ccc;">序號</th><th style="padding:8px;border:1px solid #ccc;">項目</th>`;
-                for (let i = 1; i <= rankCount; i++) ths += `<th style="padding:8px;border:1px solid #ccc;">${i} 名</th>`;
+                let ths = `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; width: 50px;">序號</th>`;
+                ths += `<th style="padding: 8px 10px; text-align: left; border: 1px solid #ccc;">項目</th>`;
+                for (let i = 1; i <= rankCount; i++) {
+                    ths += `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; min-width: 80px;">${i} 名</th>`;
+                }
                 let trs = '';
+                
                 (state.events || []).forEach((event, index) => {
-                    let tds = `<td style="padding:6px;text-align:center;border:1px solid #ccc;">${index + 1}</td><td style="padding:6px;border:1px solid #ccc;">${event.name}</td>`;
+                    if (!event) return;
+                    const eventRanks = event.ranks || {};
+                    
+                    let allRanksFilled = true;
+                    let hasErrors = false;
+                    let lastTime = -1;
+                    
+                    // 預先檢查該行狀態
                     for (let i = 1; i <= rankCount; i++) {
-                        const ms = event.ranks ? event.ranks[i] : null;
-                        tds += `<td style="padding:6px;text-align:center;border:1px solid #ccc;">${formatMillis(ms)}</td>`;
+                        const timeInMs = eventRanks[i];
+                        if (timeInMs === undefined || timeInMs === null) {
+                            allRanksFilled = false;
+                        } else {
+                            if (lastTime !== -1 && timeInMs < lastTime) hasErrors = true;
+                            lastTime = timeInMs;
+                        }
                     }
-                    trs += `<tr>${tds}</tr>`;
+                    const isComplete = allRanksFilled && !hasErrors;
+                    const completeStyle = isComplete ? 'background-color: #dcfce7;' : ''; 
+
+                    let tds = `<td style="padding: 6px 10px; text-align: center; border: 1px solid #ccc;">${index + 1}</td>`;
+                    tds += `<td style="padding: 6px 10px; text-align: left; border: 1px solid #ccc; font-weight: 500;">${event.name}</td>`;
+                    
+                    lastTime = -1; 
+                    
+                    for (let i = 1; i <= rankCount; i++) {
+                        const timeInMs = eventRanks[i];
+                        const timeText = (timeInMs === undefined || timeInMs === null) ? "" : formatMillis(timeInMs);
+                        
+                        let isError = false;
+                        if (timeInMs !== undefined && timeInMs !== null) {
+                            if (lastTime !== -1 && timeInMs < lastTime) isError = true;
+                            lastTime = timeInMs;
+                        }
+                        
+                        const errorStyle = isError ? 'background-color: #fee2e2; color: #ef4444; font-weight: bold;' : '';
+                        tds += `<td style="padding: 6px 10px; text-align: center; border: 1px solid #ccc; font-family: 'Courier New', monospace; ${errorStyle}">
+                            ${timeText}
+                        </td>`;
+                    }
+                    const bgStyle = (index % 2 !== 0 && !isComplete) ? 'background-color: #f9fafb;' : ''; 
+                    trs += `<tr style="${bgStyle} ${completeStyle}">${tds}</tr>`;
                 });
-                return `<html><head><title>報表</title><style>table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;}</style></head><body><h1>成績報表</h1><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></body></html>`;
+                const staticStyles = `
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif; background-color: #f3f4f6; padding: 20px; font-size: 14px; }
+                    .container { max-width: 1200px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; }
+                    h1 { text-align: center; margin: 20px 0; font-size: 24px; color: #333; }
+                    table { width: 100%; border-collapse: collapse; }
+                    thead { background-color: #e5e7eb; color: #1f2937; }
+                `;
+                return `
+                    <!DOCTYPE html>
+                    <html lang="zh-Hant">
+                    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>終點計時報表 (v1.9.1)</title><style>${staticStyles}</style>
+                    </head><body><div class="container">
+                        <h1>🏅 蓮小終點計時組 - 靜態報表</h1>
+                        <table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>
+                    </div></body></html>
+                `;
             }
 
             // --- Event Listeners ---
@@ -1255,7 +1323,7 @@
 
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
-                showToast('v1.9.0 載入完成 (附線上碼表)', 'success');
+                showToast('v1.9.1 載入完成 (報表升級版)', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
