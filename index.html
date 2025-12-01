@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.2.0 (精準選時版)</title>
+    <title>蓮小終點計時組 v2.3.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -326,7 +326,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.2.0</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.3.0</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -571,6 +571,10 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     刪除全部項目
                 </button>
+				<button id="btn-action-referee" class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"></path></svg>
+                    👮 裁判人員設定
+                </button>
                 <button id="btn-action-logout-admin" class="w-full hidden flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"></path></svg>
                     退出管理者模式
@@ -595,7 +599,45 @@
             </form>
         </div>
     </div>
+<div id="referee-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 h-[90vh] flex flex-col transform">
+            <header class="flex justify-between items-center mb-4 flex-shrink-0">
+                <h2 class="text-2xl font-bold text-gray-800">👮 裁判與工作分配</h2>
+                <button id="btn-close-referee-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            
+            <div class="flex-grow overflow-hidden flex flex-col md:flex-row gap-6">
+                <div class="w-full md:w-1/3 flex flex-col">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">📋 裁判人員名冊 (一行一個)</label>
+                    <textarea id="referee-list-input" class="flex-grow w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border text-base" placeholder="王小明&#10;李大華&#10;張三豐..."></textarea>
+                    <div class="mt-2 flex justify-between">
+                        <button type="button" id="btn-clear-referees" class="text-red-500 text-sm hover:text-red-700 font-medium">清空名冊</button>
+                        <span class="text-gray-500 text-sm">輸入後右側可選取</span>
+                    </div>
+                </div>
 
+                <div class="w-full md:w-2/3 flex flex-col overflow-hidden bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="p-3 bg-gray-100 border-b border-gray-200 font-bold text-gray-700 flex justify-between items-center">
+                        <span>📊 工作分配</span>
+                        <button type="button" id="btn-add-custom-role" class="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded hover:bg-indigo-200 transition">+ 自訂工作</button>
+                    </div>
+                    
+                    <div class="overflow-y-auto p-4 space-y-4" id="referee-assignments-container">
+                        <div id="rank-assignments-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 border-b border-gray-200 pb-4"></div>
+                        
+                        <div id="custom-assignments-list" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 flex-shrink-0 border-t border-gray-100 mt-4">
+                <button type="button" id="btn-cancel-referee" class="bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                <button type="button" id="btn-save-referee" class="bg-blue-600 text-white hover:bg-blue-700 font-medium py-2 px-5 rounded-lg transition duration-200 shadow-md">儲存設定</button>
+            </div>
+        </div>
+    </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
@@ -628,6 +670,7 @@
             let state = {
                 rankCount: 7, maxRank: 12, minRank: 1,
                 events: [],
+                refereeConfig: { names: [], assignments: {}, customRoles: [] }, // 新增裁判設定
                 editingTime: { eventIndex: null, rank: null },
                 confirmCallback: null, confirmInterval: null, 
                 deleteTimeConfirmation: false, deleteTimeTimeout: null,
@@ -1116,30 +1159,39 @@
             function renderTableHeader() {
                 tableHead.innerHTML = '';
                 const tr = document.createElement('tr');
+                
+                // 序號
                 const thIndex = document.createElement('th');
                 thIndex.textContent = '序號';
                 thIndex.className = 'py-4 px-4 text-center w-16';
                 tr.appendChild(thIndex);
+                
+                // 項目 + 自訂工作人員
                 const thName = document.createElement('th');
                 thName.className = 'py-4 px-4 text-left min-w-[250px]';
-                const nameHeaderContainer = document.createElement('div');
-                nameHeaderContainer.className = 'flex justify-between items-center gap-2';
-                const spanName = document.createElement('span');
-                spanName.textContent = '項目';
-                spanName.className = 'text-base';
-                const headerActionsButton = document.createElement('button');
-                headerActionsButton.id = 'btn-open-actions-modal';
-                headerActionsButton.className = 'header-action-btn no-print';
-                headerActionsButton.title = '操作選單';
-                headerActionsButton.innerHTML = `⚙️`; 
-                nameHeaderContainer.appendChild(spanName);
-                nameHeaderContainer.appendChild(headerActionsButton);
-                thName.appendChild(nameHeaderContainer);
+                
+                let customRolesHtml = '';
+                if (state.refereeConfig && Array.isArray(state.refereeConfig.customRoles)) {
+                    // 生成自訂工作人員 HTML (壓縮格式)
+                    customRolesHtml = state.refereeConfig.customRoles.map(role => {
+                        if (!role.name) return '';
+                        return `<span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded border border-yellow-200 ml-2 whitespace-nowrap" title="${role.role}: ${role.name}"><span class="font-bold">${role.role}:</span><span>${role.name}</span></span>`;
+                    }).join('');
+                }
+
+                // 設定 Header HTML (無空白節點)
+                thName.innerHTML = `<div class="flex justify-between items-center gap-2"><div class="flex-grow flex flex-wrap items-center"><span class="text-base">項目</span>${customRolesHtml}</div><button id="btn-open-actions-modal" class="header-action-btn no-print" title="操作選單">⚙️</button></div>`;
                 tr.appendChild(thName);
+
+                // 名次 + 裁判人員
+                const assignments = (state.refereeConfig && state.refereeConfig.assignments) ? state.refereeConfig.assignments : {};
                 for (let i = 1; i <= state.rankCount; i++) {
                     const thRank = document.createElement('th');
-                    thRank.textContent = `${i} 名`;
-                    thRank.className = 'py-4 px-3 text-center w-28';
+                    thRank.className = 'py-4 px-3 text-center w-28 align-top';
+                    
+                    const refereeName = assignments[i] ? `<div class="text-xs text-blue-100 font-normal mt-1 bg-blue-700 bg-opacity-50 rounded px-1 py-0.5 truncate border border-blue-500 border-opacity-30" title="計時裁判: ${assignments[i]}">👮 ${assignments[i]}</div>` : '';
+                    
+                    thRank.innerHTML = `<div class="flex flex-col items-center justify-start h-full"><span>${i} 名</span>${refereeName}</div>`;
                     tr.appendChild(thRank);
                 }
                 tableHead.appendChild(tr);
@@ -1551,7 +1603,14 @@
                 if (!isFirebaseEnabled) return;
                 const title = recordTitleInput.value.trim();
                 if (!title) return;
-                const recordData = { events: JSON.parse(JSON.stringify(state.events)), rankCount: state.rankCount };
+                
+                // 修改：加入 refereeConfig 到快照資料中
+                const recordData = { 
+                    events: JSON.parse(JSON.stringify(state.events)), 
+                    rankCount: state.rankCount,
+                    refereeConfig: JSON.parse(JSON.stringify(state.refereeConfig || { names: [], assignments: {}, customRoles: [] }))
+                };
+                
                 const snapshotObject = { title: title, data: recordData, createdAt: firebase.database.ServerValue.TIMESTAMP };
                 db.ref(SNAPSHOTS_PATH).push(snapshotObject).then(() => { closeSaveRecordModal(); showToast(`已儲存快照: ${title}`); });
             }
@@ -1659,7 +1718,118 @@
                 `;
                 return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>終點計時報表</title><style>${staticStyles}</style></head><body><div class="container"><h1>🏅 蓮小終點計時組 - 靜態報表</h1><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div></body></html>`;
             }
+// --- Referee Logic v2.3.0 ---
+            const refereeModal = document.getElementById('referee-modal');
+            const refereeListInput = document.getElementById('referee-list-input');
+            const rankAssignmentsList = document.getElementById('rank-assignments-list');
+            const customAssignmentsList = document.getElementById('custom-assignments-list');
+            const btnActionReferee = document.getElementById('btn-action-referee'); // 新按鈕
 
+            function openRefereeModal() {
+                // 填入名冊
+                const names = state.refereeConfig.names || [];
+                refereeListInput.value = names.join('\n');
+                renderRefereeUI();
+                
+                closeActionsModal();
+                refereeModal.classList.remove('hidden');
+                refereeModal.classList.add('visible');
+            }
+
+            function closeRefereeModal() {
+                refereeModal.classList.remove('visible');
+                refereeModal.classList.add('hidden');
+            }
+
+            function getRefereesFromInput() {
+                return refereeListInput.value.split('\n').map(n => n.trim()).filter(n => n !== '');
+            }
+
+            function renderRefereeUI() {
+                const currentNames = getRefereesFromInput();
+                const assignments = state.refereeConfig.assignments || {};
+                const customRoles = state.refereeConfig.customRoles || [];
+
+                // 1. 渲染名次分配 (Ranks)
+                rankAssignmentsList.innerHTML = '';
+                for (let i = 1; i <= state.rankCount; i++) {
+                    const assignedName = assignments[i] || '';
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-2 bg-white p-2 rounded shadow-sm border border-gray-100';
+                    div.innerHTML = `<span class="font-bold text-gray-500 w-12 text-center text-sm">第 ${i} 名</span><select class="referee-rank-select w-full text-sm p-1 border rounded" data-rank="${i}">${generateOptionsHtml(currentNames, assignedName)}</select>`;
+                    rankAssignmentsList.appendChild(div);
+                }
+
+                // 2. 渲染自訂工作 (Custom Roles)
+                customAssignmentsList.innerHTML = '';
+                customRoles.forEach((roleObj, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-2 bg-white p-2 rounded shadow-sm border border-gray-100 animate-fade-in';
+                    div.innerHTML = `<input type="text" class="custom-role-name text-sm p-1 border rounded w-1/3 font-medium text-indigo-800 bg-indigo-50" placeholder="工作名稱 (如: 紅白旗)" value="${roleObj.role || ''}"><select class="custom-role-select w-full text-sm p-1 border rounded flex-grow">${generateOptionsHtml(currentNames, roleObj.name)}</select><button type="button" class="text-red-400 hover:text-red-600 p-1 btn-remove-custom-role">✖</button>`;
+                    
+                    // 綁定刪除事件
+                    div.querySelector('.btn-remove-custom-role').addEventListener('click', () => {
+                        div.remove();
+                    });
+                    customAssignmentsList.appendChild(div);
+                });
+            }
+
+            function generateOptionsHtml(names, selectedName) {
+                let html = '<option value="">-- 未分配 --</option>';
+                names.forEach(name => {
+                    const isSelected = name === selectedName ? 'selected' : '';
+                    html += `<option value="${name}" ${isSelected}>${name}</option>`;
+                });
+                return html;
+            }
+
+            function addCustomRoleRow() {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2 bg-white p-2 rounded shadow-sm border border-gray-100';
+                const currentNames = getRefereesFromInput();
+                div.innerHTML = `<input type="text" class="custom-role-name text-sm p-1 border rounded w-1/3 font-medium text-indigo-800 bg-indigo-50" placeholder="工作名稱"><select class="custom-role-select w-full text-sm p-1 border rounded flex-grow">${generateOptionsHtml(currentNames, '')}</select><button type="button" class="text-red-400 hover:text-red-600 p-1 btn-remove-custom-role">✖</button>`;
+                 div.querySelector('.btn-remove-custom-role').addEventListener('click', () => div.remove());
+                customAssignmentsList.appendChild(div);
+                // 滾動到底部
+                const container = document.getElementById('referee-assignments-container');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            function handleSaveReferee() {
+                if (!isFirebaseEnabled) { showToast('離線模式無法儲存', 'error'); return; }
+                
+                const names = getRefereesFromInput();
+                const newAssignments = {};
+                
+                // 收集名次分配
+                document.querySelectorAll('.referee-rank-select').forEach(select => {
+                    if (select.value) {
+                        newAssignments[select.dataset.rank] = select.value;
+                    }
+                });
+
+                // 收集自訂工作
+                const newCustomRoles = [];
+                document.querySelectorAll('#custom-assignments-list > div').forEach(div => {
+                    const role = div.querySelector('.custom-role-name').value.trim();
+                    const name = div.querySelector('.custom-role-select').value;
+                    if (role && name) {
+                        newCustomRoles.push({ role, name });
+                    }
+                });
+
+                const newConfig = {
+                    names: names,
+                    assignments: newAssignments,
+                    customRoles: newCustomRoles
+                };
+
+                db.ref(`${APP_DATA_PATH}/refereeConfig`).set(newConfig).then(() => {
+                    closeRefereeModal();
+                    showToast('✅ 裁判設定已儲存');
+                });
+            }
             // --- Event Listeners ---
             btnRankMinus.addEventListener('click', () => updateRankCount(-1));
             btnRankPlus.addEventListener('click', () => updateRankCount(1));
@@ -1724,7 +1894,15 @@
             btnActionSave.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return showToast('無項目','error'); openSaveRecordModal(); });
             btnActionExportHtml.addEventListener('click', () => { closeActionsModal(); handleExportHtml(); });
             btnActionDeleteAll.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return; showCustomConfirm('刪除全部','確定？', deleteAllEvents); });
-            btnActionLogoutAdmin.addEventListener('click', logoutAdminMode);
+            // 裁判相關事件
+            btnActionReferee.addEventListener('click', () => openPasswordModal(openRefereeModal));
+            document.getElementById('btn-close-referee-modal').addEventListener('click', closeRefereeModal);
+            document.getElementById('btn-cancel-referee').addEventListener('click', closeRefereeModal);
+            document.getElementById('btn-save-referee').addEventListener('click', handleSaveReferee);
+            document.getElementById('btn-clear-referees').addEventListener('click', () => { refereeListInput.value = ''; renderRefereeUI(); });
+            document.getElementById('btn-add-custom-role').addEventListener('click', addCustomRoleRow);
+            refereeListInput.addEventListener('input', renderRefereeUI); // 即時更新下拉選單
+			btnActionLogoutAdmin.addEventListener('click', logoutAdminMode);
             
             cloudSnapshotsContainer.addEventListener('click', (e) => {
                 const btn = e.target.closest('button');
@@ -1769,6 +1947,8 @@
                     const data = snapshot.val();
                     state.events = (data && data.events) ? data.events : [];
                     state.rankCount = (data && data.rankCount) ? data.rankCount : 7;
+					// 讀取裁判設定
+                    state.refereeConfig = (data && data.refereeConfig) ? data.refereeConfig : { names: [], assignments: {}, customRoles: [] };
                     rankCountDisplay.textContent = state.rankCount;
                     renderTable();
                 });
