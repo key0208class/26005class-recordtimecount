@@ -2097,6 +2097,9 @@ function generateStaticHtml() {
                 
                 // v2.5.0 事件判斷順序：先判斷小按鈕/標籤，最後才是整個儲存格
                 if (target.closest('.btn-assign-player') || target.closest('.player-tag')) {
+                    // v2.7.0 嚴格權限控管：只有管理員模式下，點擊才有效
+                    if (!state.isAdminAuthenticated) return;
+
                     // 點擊「+」或「選手名字」開啟選手選擇
                     e.stopPropagation(); // 阻止冒泡，避免打開時間輸入視窗
                     const rank = parseInt(target.closest('.time-cell').dataset.rank);
