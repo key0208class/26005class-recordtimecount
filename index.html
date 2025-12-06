@@ -45,7 +45,26 @@
         /* === v2.5.0 新增樣式：選手標籤 === */
         .player-tag { display: block; font-size: 0.75rem; line-height: 1.2; color: #4b5563; background-color: rgba(255,255,255,0.6); padding: 1px 4px; border-radius: 4px; margin: 0 auto 2px auto; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
         .player-tag:hover { background-color: #fff; color: #2563eb; }
-        .btn-assign-player { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; background-color: #3b82f6; color: white; border-radius: 50%; font-size: 14px; line-height: 1; border: 2px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2); cursor: pointer; position: absolute; top: -8px; right: -8px; transition: transform 0.2s, background-color 0.2s; z-index: 10; }
+       .btn-assign-player { 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            width: 25px;   /* 修改這裡：寬度變大 (原本20px) */
+            height: 25px;  /* 修改這裡：高度變大 (原本20px) */
+            background-color: #3b82f6; 
+            color: white; 
+            border-radius: 50%; 
+            font-size: 16px; /* 修改這裡：符號變大 (原本14px) */
+            line-height: 1; 
+            border: 2px solid white; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+            cursor: pointer; 
+            position: absolute; 
+            top: -15px;    /* 修改這裡：位置稍微往右上角外推，避免遮擋 */
+            right: -15px;  /* 修改這裡：位置稍微往右上角外推 */
+            transition: transform 0.2s, background-color 0.2s; 
+            z-index: 10; 
+        }
         .btn-assign-player:hover { background-color: #2563eb; transform: scale(1.1); }
         .time-cell-content { position: relative; display: inline-block; min-width: 80px; } /* 讓內容相對定位以便放置按鈕 */
         /* Modal 動畫 */
