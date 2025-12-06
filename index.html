@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.3.0</title>
+    <title>蓮小終點計時組 v2.6.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -42,7 +42,12 @@
     <style>
         /* === 全局字體與基礎樣式 === */
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f3f4f6; font-size: 16px; }
-        
+        /* === v2.5.0 新增樣式：選手標籤 === */
+        .player-tag { display: block; font-size: 0.75rem; line-height: 1.2; color: #4b5563; background-color: rgba(255,255,255,0.6); padding: 1px 4px; border-radius: 4px; margin: 0 auto 2px auto; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+        .player-tag:hover { background-color: #fff; color: #2563eb; }
+        .btn-assign-player { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; background-color: #3b82f6; color: white; border-radius: 50%; font-size: 14px; line-height: 1; border: 2px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2); cursor: pointer; position: absolute; top: -8px; right: -8px; transition: transform 0.2s, background-color 0.2s; z-index: 10; }
+        .btn-assign-player:hover { background-color: #2563eb; transform: scale(1.1); }
+        .time-cell-content { position: relative; display: inline-block; min-width: 80px; } /* 讓內容相對定位以便放置按鈕 */
         /* Modal 動畫 */
         .modal { transition: opacity 0.25s ease, transform 0.25s ease; }
         .modal-content { transition: transform 0.25s ease; }
@@ -326,7 +331,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.3.0</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.6.0</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -443,13 +448,21 @@
                 <div>
                     <label for="edit-event-index" class="block text-sm font-bold text-gray-700 mb-1">調整序號 (總數: <span id="total-events-count">0</span>)</label>
                     <div class="flex items-center justify-center gap-3">
-                        <button type="button" id="btn-decrease-index" class="w-12 h-12 rounded-lg bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 flex items-center justify-center border border-gray-300 text-xl font-bold transition">⬇️</button>
+                        <button type="button" id="btn-decrease-index" class="w-12 h-12 rounded-lg bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 flex items-center justify-center border border-gray-300 text-xl font-bold transition">⬆️</button>
                         <input type="number" id="edit-event-index" class="w-24 rounded-lg border-2 border-gray-300 p-3 text-center text-2xl font-bold text-blue-600 focus:border-blue-500 focus:outline-none" min="1">
-                        <button type="button" id="btn-increase-index" class="w-12 h-12 rounded-lg bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 flex items-center justify-center border border-gray-300 text-xl font-bold transition">⬆️</button>
+                        <button type="button" id="btn-increase-index" class="w-12 h-12 rounded-lg bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 flex items-center justify-center border border-gray-300 text-xl font-bold transition">⬇️</button>
                     </div>
                 </div>
 
                 <div class="border-t border-gray-200 pt-5 flex flex-col gap-3">
+				<div class="mb-2">
+                        <div class="flex justify-between items-end mb-1">
+                            <label for="edit-event-players" class="block text-sm font-bold text-gray-700">🏃 選手名單 (選填)</label>
+                            <button type="button" id="btn-clear-player-input" class="text-xs text-red-500 hover:text-red-700 underline bg-transparent border-none cursor-pointer transition">🗑️ 全部清除</button>
+                        </div>
+                        <textarea id="edit-event-players" rows="3" class="w-full rounded-lg border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 text-sm" placeholder="請輸入選手姓名，以空格或換行分隔 (例: 601王小明 602李大華)"></textarea>
+                        <p class="text-xs text-gray-500 mt-1 text-right">輸入後，成績欄位將出現 + 號供選取</p>
+                    </div>
                     <div class="flex gap-3">
                         <button type="button" id="btn-duplicate-event" class="flex-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition">
                             <span>📋</span> 複製此項目
@@ -515,7 +528,25 @@
             </div>
         </div>
     </div>
-    
+    <div id="player-select-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[65] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform flex flex-col max-h-[80vh]">
+            <header class="flex justify-between items-center mb-4 flex-shrink-0">
+                <h2 class="text-xl font-bold text-gray-800">🏃 選擇選手 <span id="player-select-rank-display" class="text-blue-600 ml-2"></span></h2>
+                <button id="btn-close-player-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            <div class="mb-2 flex-shrink-0">
+                <p class="text-sm text-gray-500">請點擊下方選手以分配成績，或點擊「清除」移除目前選手。</p>
+            </div>
+            <div id="player-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto p-1">
+                </div>
+            <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center flex-shrink-0">
+                <button type="button" id="btn-clear-player" class="text-red-500 hover:text-red-700 font-medium text-sm px-3 py-2 rounded hover:bg-red-50 transition">❌ 清除目前選手</button>
+                <button type="button" id="btn-cancel-player-select" class="bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+            </div>
+        </div>
+    </div>
     <div id="save-record-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 no-print">
         <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 sm:p-8 transform">
             <h2 class="text-xl font-bold text-gray-800 mb-6">儲存雲端快照 ☁️</h2>
@@ -671,7 +702,8 @@
                 rankCount: 7, maxRank: 12, minRank: 1,
                 events: [],
                 refereeConfig: { names: [], assignments: {}, customRoles: [] }, // 新增裁判設定
-                editingTime: { eventIndex: null, rank: null },
+               editingTime: { eventIndex: null, rank: null },
+                assigningPlayer: { eventIndex: null, rank: null }, // v2.5.0 新增：正在分配選手的狀態
                 confirmCallback: null, confirmInterval: null, 
                 deleteTimeConfirmation: false, deleteTimeTimeout: null,
                 passwordCallback: null,
@@ -722,7 +754,17 @@
             const btnIncreaseIndex = document.getElementById('btn-increase-index');
             const totalEventsCountSpan = document.getElementById('total-events-count');
             const btnDuplicateEvent = document.getElementById('btn-duplicate-event');
-            const btnDeleteEventModal = document.getElementById('btn-delete-event-modal');
+           const btnDeleteEventModal = document.getElementById('btn-delete-event-modal');
+            const editEventPlayersInput = document.getElementById('edit-event-players'); // v2.5.0
+            const btnClearPlayerInput = document.getElementById('btn-clear-player-input'); // v2.6.0
+            
+            // v2.5.0 Player Select Modal
+            const playerSelectModal = document.getElementById('player-select-modal');
+            const btnClosePlayerModal = document.getElementById('btn-close-player-modal');
+            const btnCancelPlayerSelect = document.getElementById('btn-cancel-player-select');
+            const playerGrid = document.getElementById('player-grid');
+            const playerSelectRankDisplay = document.getElementById('player-select-rank-display');
+            const btnClearPlayer = document.getElementById('btn-clear-player');
             
             // Time Input Modal & Lap Selection
             const timeInputModal = document.getElementById('time-input-modal');
@@ -1197,7 +1239,7 @@
                 tableHead.appendChild(tr);
             }
 
-            function renderTableBody() {
+          function renderTableBody() {
                 tableBody.innerHTML = ''; 
                 const events = Array.isArray(state.events) ? state.events : [];
                 if (events.length === 0) {
@@ -1269,6 +1311,9 @@
                     tr.appendChild(tdName);
 
                     // Ranks
+                    const hasPlayersList = (event.players && event.players.length > 0);
+                    const playerAssignments = event.playerAssignments || {};
+
                     for (let i = 1; i <= state.rankCount; i++) {
                         const tdRank = document.createElement('td');
                         tdRank.className = 'time-cell';
@@ -1276,19 +1321,40 @@
                         tdRank.dataset.rank = i;
                         tdRank.id = `cell-${index}-${i}`;
                         const timeInMs = (event.ranks && event.ranks[i]) ? event.ranks[i] : null;
-                        const timeTextNode = document.createElement('div');
+                        
+                        // v2.6.0 Render Logic (Strict No Whitespace & Admin Check)
+                        let cellContent = '';
                         if (timeInMs === undefined || timeInMs === null) {
-                            timeTextNode.textContent = i; 
-                            timeTextNode.classList.add('time-cell-placeholder'); 
+                            cellContent = `<div class="time-cell-placeholder">${i}</div>`;
                             tdRank.classList.add('empty');
                         } else {
-                            timeTextNode.textContent = formatMillis(timeInMs);
+                            // 1. Player Tag
+                            let playerHtml = '';
+                            if (playerAssignments[i]) {
+                                // v2.6.0: 如果是管理員，顯示可點擊樣式；否則顯示純文字樣式(無 hover 效果)
+                                const cursorClass = state.isAdminAuthenticated ? 'cursor-pointer hover:bg-white hover:text-blue-600' : 'cursor-default';
+                                playerHtml = `<span class="player-tag ${cursorClass}" title="${state.isAdminAuthenticated ? '點擊修改選手' : '選手姓名'}">${playerAssignments[i]}</span>`;
+                            }
+
+                            // 2. Time Display
+                            let timeHtml = `<span class="time-text">${formatMillis(timeInMs)}</span>`;
+
+                            // 3. Assign Button (+) (Strictly Admin Only)
+                            let btnHtml = '';
+                            if (hasPlayersList && state.isAdminAuthenticated) {
+                                // 管理員模式且有選手名單，才顯示 + 號
+                                if (!playerAssignments[i]) {
+                                    btnHtml = `<button class="btn-assign-player no-print" title="分配選手">＋</button>`;
+                                }
+                            }
+                            
+                            // Combine using relative container without whitespace
+                            cellContent = `<div class="time-cell-content">${playerHtml}${timeHtml}${btnHtml}</div>`;
                         }
-                        const swapBtnContainer = document.createElement('div');
-                        swapBtnContainer.id = `swap-btn-container-${index}-${i}`;
-                        swapBtnContainer.className = 'conflict-btn-container';
-                        tdRank.appendChild(timeTextNode);
-                        tdRank.appendChild(swapBtnContainer);
+                        
+                        const swapBtnContainerId = `swap-btn-container-${index}-${i}`;
+                        tdRank.innerHTML = `${cellContent}<div id="${swapBtnContainerId}" class="conflict-btn-container"></div>`;
+                        
                         tr.appendChild(tdRank);
                     }
                     tableBody.appendChild(tr);
@@ -1312,7 +1378,87 @@
                     cloudSnapshotsContainer.appendChild(item);
                 });
             }
+// --- v2.5.0 Logic: Player Assignment ---
+            
+            function openPlayerSelectModal(eventIndex, rank) {
+                const event = state.events[eventIndex];
+                if (!event || !event.players || event.players.length === 0) {
+                    showToast('此項目尚未建立選手名單', 'error');
+                    return;
+                }
+                
+                state.assigningPlayer = { eventIndex, rank };
+                playerSelectRankDisplay.textContent = `(第 ${rank} 名)`;
+                
+                // Render Players
+                playerGrid.innerHTML = '';
+                event.players.forEach(name => {
+                    const btn = document.createElement('button');
+                    // 檢查是否已被分配到其他名次 (除了自己)
+                    let isAssignedElsewhere = false;
+                    let assignedRank = null;
+                    if (event.playerAssignments) {
+                        for (const [r, pName] of Object.entries(event.playerAssignments)) {
+                            if (pName === name && parseInt(r) !== rank) {
+                                isAssignedElsewhere = true;
+                                assignedRank = r;
+                                break;
+                            }
+                        }
+                    }
 
+                    const isCurrentAssigned = (event.playerAssignments && event.playerAssignments[rank] === name);
+
+                    let btnClass = "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition relative ";
+                    if (isCurrentAssigned) {
+                        btnClass += "bg-blue-100 border-blue-500 text-blue-700 font-bold shadow-md";
+                    } else if (isAssignedElsewhere) {
+                        btnClass += "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60";
+                    } else {
+                        btnClass += "bg-white border-gray-200 hover:border-blue-400 hover:shadow text-gray-700";
+                    }
+                    
+                    btn.className = btnClass;
+                    btn.innerHTML = `<span class="text-lg">${name}</span>${isAssignedElsewhere ? `<span class="text-xs text-red-400">(第${assignedRank}名)</span>` : ''}`;
+                    
+                    if (!isAssignedElsewhere) {
+                        btn.addEventListener('click', () => assignPlayer(name));
+                    }
+                    playerGrid.appendChild(btn);
+                });
+
+                playerSelectModal.classList.remove('hidden');
+                playerSelectModal.classList.add('visible');
+            }
+
+            function closePlayerSelectModal() {
+                playerSelectModal.classList.remove('visible');
+                playerSelectModal.classList.add('hidden');
+                state.assigningPlayer = { eventIndex: null, rank: null };
+            }
+
+            function assignPlayer(name) {
+                if (!isFirebaseEnabled) return;
+                const { eventIndex, rank } = state.assigningPlayer;
+                if (eventIndex === null || rank === null) return;
+                
+                // 直接更新路徑: events/X/playerAssignments/Y = Name
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/playerAssignments/${rank}`).set(name).then(() => {
+                    closePlayerSelectModal();
+                    showToast(`✅ 已將 ${name} 分配至第 ${rank} 名`);
+                });
+            }
+
+            function clearAssignedPlayer() {
+                if (!isFirebaseEnabled) return;
+                const { eventIndex, rank } = state.assigningPlayer;
+                if (eventIndex === null || rank === null) return;
+
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/playerAssignments/${rank}`).remove().then(() => {
+                    closePlayerSelectModal();
+                    showToast('已清除該名次選手');
+                });
+            }
             // --- Logic: Event Handling ---
             
             function openEditEventModal(index) {
@@ -1320,6 +1466,14 @@
                 if (!event) return;
                 state.editingEventIndex = index;
                 editEventNameInput.value = event.name;
+                
+                // v2.5.0 載入選手名單
+                if (event.players && Array.isArray(event.players)) {
+                    editEventPlayersInput.value = event.players.join(' ');
+                } else {
+                    editEventPlayersInput.value = '';
+                }
+
                 editEventIndexInput.value = index + 1;
                 totalEventsCountSpan.textContent = state.events.length;
                 editEventModal.classList.remove('hidden');
@@ -1342,20 +1496,48 @@
                 editEventIndexInput.value = newVal;
             }
 
-            function handleSaveEditEvent(e) {
+           function handleSaveEditEvent(e) {
                 e.preventDefault();
                 if (!isFirebaseEnabled) return;
                 
                 const currentIndex = state.editingEventIndex;
                 const newName = editEventNameInput.value.trim();
                 const newIndexInputVal = parseInt(editEventIndexInput.value);
+                
+                // v2.5.0 處理選手名單 (以空格或換行切割，過濾空字串)
+                const playersInput = editEventPlayersInput.value.trim();
+                let newPlayers = [];
+                if (playersInput) {
+                    newPlayers = playersInput.split(/[\s\n\t]+/).filter(p => p.trim() !== '');
+                }
 
                 if (!newName) { showToast('名稱不可為空', 'error'); return; }
                 if (isNaN(newIndexInputVal) || newIndexInputVal < 1) { showToast('序號無效', 'error'); return; }
 
                 const targetIndex = newIndexInputVal - 1;
                 let currentEvents = [...state.events];
+                
+                // 更新物件內容
                 currentEvents[currentIndex].name = newName;
+                currentEvents[currentIndex].players = newPlayers; 
+
+                // v2.6.0: 智慧清理分配 (若選手已不在新名單中，則移除其分配)
+                // 如果 newPlayers 是空的，則直接清空 assignments
+                if (newPlayers.length === 0) {
+                    currentEvents[currentIndex].playerAssignments = {};
+                } else {
+                    // 若有新名單，檢查現有分配是否有效
+                    const validAssignments = {};
+                    if(currentEvents[currentIndex].playerAssignments) {
+                        for(const [rank, name] of Object.entries(currentEvents[currentIndex].playerAssignments)) {
+                            // 只有當被分配的名字，依然存在於新名單中時，才保留
+                            if(newPlayers.includes(name)) {
+                                validAssignments[rank] = name;
+                            }
+                        }
+                        currentEvents[currentIndex].playerAssignments = validAssignments;
+                    }
+                }
 
                 if (currentIndex !== targetIndex) {
                     let safeTarget = targetIndex;
@@ -1368,7 +1550,7 @@
 
                 db.ref(`${APP_DATA_PATH}/events`).set(currentEvents).then(() => {
                     closeEditEventModal();
-                    showToast('項目修改與排序已更新');
+                    showToast('項目修改與選手名單已更新');
                 });
             }
 
@@ -1663,7 +1845,7 @@
                 }
             }
 
-            function generateStaticHtml() {
+function generateStaticHtml() {
                 const rankCount = state.rankCount;
                 let ths = `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; width: 50px;">序號</th>`;
                 ths += `<th style="padding: 8px 10px; text-align: left; border: 1px solid #ccc;">項目</th>`;
@@ -1675,6 +1857,8 @@
                 (state.events || []).forEach((event, index) => {
                     if (!event) return;
                     const eventRanks = event.ranks || {};
+                    const playerAssignments = event.playerAssignments || {}; // v2.6.0 Get assignments
+                    
                     let allRanksFilled = true;
                     let hasErrors = false;
                     let lastTime = -1;
@@ -1704,17 +1888,27 @@
                             lastTime = timeInMs;
                         }
                         const errorStyle = isError ? 'background-color: #fee2e2; color: #ef4444; font-weight: bold;' : '';
-                        tds += `<td style="padding: 6px 10px; text-align: center; border: 1px solid #ccc; font-family: 'Courier New', monospace; ${errorStyle}">${timeText}</td>`;
+                        
+                        // v2.6.0 Export Player Name
+                        let playerHtml = '';
+                        if(playerAssignments[i]) {
+                             playerHtml = `<div class="static-player-tag">${playerAssignments[i]}</div>`;
+                        }
+
+                        tds += `<td style="padding: 6px 4px; text-align: center; border: 1px solid #ccc; font-family: 'Courier New', monospace; ${errorStyle} vertical-align: middle;">${playerHtml}${timeText}</td>`;
                     }
                     const bgStyle = (index % 2 !== 0 && !isComplete) ? 'background-color: #f9fafb;' : ''; 
                     trs += `<tr style="${bgStyle} ${completeStyle}">${tds}</tr>`;
                 });
+                
+                // v2.6.0 Added static-player-tag style
                 const staticStyles = `
                     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif; background-color: #f3f4f6; padding: 20px; font-size: 14px; }
                     .container { max-width: 1200px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; }
                     h1 { text-align: center; margin: 20px 0; font-size: 24px; color: #333; }
                     table { width: 100%; border-collapse: collapse; }
                     thead { background-color: #e5e7eb; color: #1f2937; }
+                    .static-player-tag { display: inline-block; font-size: 12px; color: #4b5563; background-color: #e5e7eb; padding: 1px 4px; border-radius: 4px; margin-bottom: 2px; }
                 `;
                 return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>終點計時報表</title><style>${staticStyles}</style></head><body><div class="container"><h1>🏅 蓮小終點計時組 - 靜態報表</h1><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div></body></html>`;
             }
@@ -1850,6 +2044,13 @@
             btnIncreaseIndex.addEventListener('click', () => adjustEditIndex(1));
             btnDuplicateEvent.addEventListener('click', handleDuplicateEvent);
             btnDeleteEventModal.addEventListener('click', deleteEventFromModal);
+			// v2.6.0 Clear Player Input
+            btnClearPlayerInput.addEventListener('click', () => {
+                if(confirm('確定要清空輸入框嗎？儲存後將會一併移除所有已分配的選手。')) {
+                    editEventPlayersInput.value = '';
+                    editEventPlayersInput.focus();
+                }
+            });
 
             btnDeleteTime.addEventListener('click', () => {
                 if (!state.deleteTimeConfirmation) {
@@ -1875,7 +2076,13 @@
                 if (!tr) return;
                 const eventIndex = parseInt(tr.dataset.eventIndex);
                 
-                if (target.closest('.time-cell') && !target.closest('.conflict-btn')) {
+                // v2.5.0 事件判斷順序：先判斷小按鈕/標籤，最後才是整個儲存格
+                if (target.closest('.btn-assign-player') || target.closest('.player-tag')) {
+                    // 點擊「+」或「選手名字」開啟選手選擇
+                    e.stopPropagation(); // 阻止冒泡，避免打開時間輸入視窗
+                    const rank = parseInt(target.closest('.time-cell').dataset.rank);
+                    openPlayerSelectModal(eventIndex, rank);
+                } else if (target.closest('.time-cell') && !target.closest('.conflict-btn')) {
                     openTimeInputModal(eventIndex, parseInt(target.closest('.time-cell').dataset.rank));
                 } else if (target.closest('.btn-open-edit-modal')) { 
                     openEditEventModal(eventIndex); 
@@ -1917,7 +2124,11 @@
             customConfirmCancel.addEventListener('click', hideCustomConfirm);
             passwordForm.addEventListener('submit', handlePasswordSubmit);
             btnCancelPassword.addEventListener('click', closePasswordModal);
-
+// v2.5.0 Player Modal Events
+            btnClosePlayerModal.addEventListener('click', closePlayerSelectModal);
+            btnCancelPlayerSelect.addEventListener('click', closePlayerSelectModal);
+            btnClearPlayer.addEventListener('click', clearAssignedPlayer);
+            playerSelectModal.addEventListener('click', (e) => e.target === playerSelectModal && closePlayerSelectModal());
             // --- Stopwatch Event Listeners ---
             swToggleBtn.addEventListener('click', toggleStopwatchPanel);
             swBtnStart.addEventListener('click', startStopwatch);
