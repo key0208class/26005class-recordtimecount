@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.7.3</title>
+    <title>蓮小終點計時組 v2.7.4</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -206,6 +206,19 @@
             transition: color 0.2s;
         }
         .sw-settings-btn:hover { color: #ffffff; }
+
+        /* v2.7.4 新增：拖移手把樣式 */
+        .sw-drag-handle {
+            cursor: move; /* 電腦版游標 */
+            cursor: grab;
+            color: #9ca3af; padding: 2px; font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            touch-action: none; /* 防止手機瀏覽器預設滾動 */
+            transition: color 0.2s;
+        }
+        .sw-drag-handle:active { cursor: grabbing; color: #fff; }
+        .sw-drag-handle:hover { color: #ffffff; }
+        .sw-settings-btn:hover { color: #ffffff; }
         
         /* 設定選單 Popover */
         .sw-settings-menu {
@@ -323,7 +336,12 @@
     <div id="stopwatch-widget" class="no-print">
         <div id="sw-panel" class="sw-main-panel minimized">
             <div class="sw-header">
-                <button id="sw-settings-toggle" class="sw-settings-btn" title="設定">⚙️</button>
+                <div class="flex items-center gap-2">
+                    <button id="sw-settings-toggle" class="sw-settings-btn" title="設定">⚙️</button>
+                    <div id="sw-drag-handle" class="sw-drag-handle" title="按住拖移視窗">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+                    </div>
+                </div>
                 <div class="flex flex-col items-end">
                     <span class="text-xs font-bold text-gray-400 tracking-wider uppercase">Pro Stopwatch</span>
                     <span class="text-[10px] text-gray-500">僅本機有效</span>
@@ -372,7 +390,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.3</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.4</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -1057,6 +1075,91 @@
                 state.confirmCallback = null;
             }
 
+           // --- v2.7.4 Logic: Draggable Stopwatch ---
+            const swDragHandle = document.getElementById('sw-drag-handle');
+            const stopwatchWidget = document.getElementById('stopwatch-widget');
+            let isDragging = false;
+            let dragStartX, dragStartY;
+            let initialLeft, initialTop;
+
+            // 初始化拖移事件
+            function initDraggable() {
+                // 滑鼠事件
+                swDragHandle.addEventListener('mousedown', dragStart);
+                document.addEventListener('mousemove', dragMove);
+                document.addEventListener('mouseup', dragEnd);
+                
+                // 觸控事件 (手機)
+                swDragHandle.addEventListener('touchstart', dragStart, { passive: false });
+                document.addEventListener('touchmove', dragMove, { passive: false });
+                document.addEventListener('touchend', dragEnd);
+            }
+
+            function dragStart(e) {
+                // 如果不是展開狀態，不允許拖動 (雖然理論上手把也點不到)
+                if (!state.stopwatch.isExpanded) return;
+
+                isDragging = true;
+                const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+                dragStartX = clientX;
+                dragStartY = clientY;
+
+                // 取得當前位置，若尚未設定 style.left/top，則使用 getBoundingClientRect
+                const rect = stopwatchWidget.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+                
+                // 修正：當開始拖曳時，將定位切換為 top/left 控制，並清除 bottom/right
+                // 這樣才能跟隨滑鼠移動
+                stopwatchWidget.style.bottom = 'auto';
+                stopwatchWidget.style.right = 'auto';
+                stopwatchWidget.style.left = `${initialLeft}px`;
+                stopwatchWidget.style.top = `${initialTop}px`;
+
+                swDragHandle.style.cursor = 'grabbing';
+                
+                // 防止選取文字或滾動
+                if(e.cancelable && e.type === 'touchstart') e.preventDefault();
+            }
+
+            function dragMove(e) {
+                if (!isDragging) return;
+                
+                if(e.type === 'touchmove') e.preventDefault(); // 防止手機畫面跟著滾動
+
+                const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+                const deltaX = clientX - dragStartX;
+                const deltaY = clientY - dragStartY;
+
+                let newLeft = initialLeft + deltaX;
+                let newTop = initialTop + deltaY;
+
+                // 邊界檢查 (防止拖出視窗)
+                const widgetRect = stopwatchWidget.getBoundingClientRect();
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+
+                // 限制左邊界與右邊界
+                if (newLeft < 0) newLeft = 0;
+                if (newLeft + widgetRect.width > windowWidth) newLeft = windowWidth - widgetRect.width;
+
+                // 限制上邊界與下邊界
+                if (newTop < 0) newTop = 0;
+                if (newTop + widgetRect.height > windowHeight) newTop = windowHeight - widgetRect.height;
+
+                stopwatchWidget.style.left = `${newLeft}px`;
+                stopwatchWidget.style.top = `${newTop}px`;
+            }
+
+            function dragEnd() {
+                isDragging = false;
+                swDragHandle.style.cursor = 'grab';
+            }
+
             // --- Stopwatch Logic v2.2 ---
             
             function getCurrentTime() {
@@ -1201,6 +1304,14 @@
                     swToggleBtn.classList.remove('active');
                     swToggleBtn.innerHTML = '⏱️';
                     swSettingsMenu.classList.add('hidden');
+                    
+                    // v2.7.4: 關閉時重置位置回右下角
+                    setTimeout(() => {
+                        stopwatchWidget.style.top = '';
+                        stopwatchWidget.style.left = '';
+                        stopwatchWidget.style.bottom = '20px';
+                        stopwatchWidget.style.right = '20px';
+                    }, 300); // 等待縮小動畫完成後再重置，視覺較平滑
                 }
             }
 
@@ -2527,9 +2638,12 @@ function generateStaticHtml() {
                 db.ref(SNAPSHOTS_PATH).on('value', renderCloudSnapshots);
             }
 
+            // v2.7.4 初始化拖移功能
+            initDraggable();
+
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
-                showToast('v2.2.0 精準選時版載入完成', 'success');
+                showToast('v2.7.4 精準選時版載入完成', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
