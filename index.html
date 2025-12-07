@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.7.2</title>
+    <title>蓮小終點計時組 v2.7.3</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -372,7 +372,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.2</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.3</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -1389,30 +1389,29 @@
                     // Actions
                     const buttonContainer = document.createElement('div');
                     buttonContainer.className = 'flex gap-1 no-print ml-2 items-center';
-                    const sortBtnContainer = document.createElement('span');
-                    sortBtnContainer.id = `sort-btn-container-${index}`;
-                    sortBtnContainer.className = 'ml-1';
                     
-                    // Edit Button
-                    const editIconSVG = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.815 19.874a2.25 2.25 0 01-1.06.58L3 21l.546-2.828a2.25 2.25 0 01.58-1.06L16.862 4.487z" /></svg>`;
-                    const editBtn = document.createElement('button');
-                    editBtn.className = 'cell-action-btn btn-open-edit-modal';
-                    editBtn.title = '編輯項目與序號';
-                    editBtn.innerHTML = editIconSVG;
-                    
-                    buttonContainer.appendChild(sortBtnContainer);
-                    buttonContainer.appendChild(editBtn);
+                    // v2.7.4 修改：跑者人數圖示 (開放全員顯示)
+                    let runnerCountHtml = '';
+                    // 移除 state.isAdminAuthenticated 檢查，讓一般使用者也能看到人數
+                    if (event.players && event.players.length > 0) {
+                        runnerCountHtml = `<span class="inline-flex items-center justify-center bg-blue-50 text-blue-600 text-xs font-bold px-2 py-1 rounded border border-blue-200 mr-1" title="本組共有 ${event.players.length} 位選手">${event.players.length}🏃</span>`;
+                    }
 
-                    // Manual OK Button
+                    const sortBtnContainerId = `sort-btn-container-${index}`;
+                    
+                    // Edit Button SVG
+                    const editIconSVG = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.815 19.874a2.25 2.25 0 01-1.06.58L3 21l.546-2.828a2.25 2.25 0 01.58-1.06L16.862 4.487z" /></svg>`;
+                    
+                    // Manual OK Button SVG
+                    let okBtnHtml = '';
                     if (state.isAdminAuthenticated) {
                         const okIconSVG = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
-                        const okBtn = document.createElement('button');
-                        okBtn.className = `cell-ok-btn btn-manual-ok ${event.manualComplete ? 'active' : ''}`;
-                        okBtn.title = '手動標記完成 (強制綠色)';
-                        okBtn.dataset.eventIndex = index;
-                        okBtn.innerHTML = okIconSVG;
-                        buttonContainer.appendChild(okBtn);
+                        const activeClass = event.manualComplete ? 'active' : '';
+                        okBtnHtml = `<button class="cell-ok-btn btn-manual-ok ${activeClass}" title="手動標記完成 (強制綠色)" data-event-index="${index}">${okIconSVG}</button>`;
                     }
+                    
+                    // 使用 innerHTML 一次性渲染，確保無多餘空白節點
+                    buttonContainer.innerHTML = `${runnerCountHtml}<span id="${sortBtnContainerId}" class="ml-1"></span><button class="cell-action-btn btn-open-edit-modal" title="編輯項目與序號">${editIconSVG}</button>${okBtnHtml}`;
 
                     flexContainer.appendChild(nameContainer);
                     flexContainer.appendChild(buttonContainer);
@@ -1643,44 +1642,63 @@
                 if (!newName) { showToast('名稱不可為空', 'error'); return; }
                 if (isNaN(newIndexInputVal) || newIndexInputVal < 1) { showToast('序號無效', 'error'); return; }
 
-                const targetIndex = newIndexInputVal - 1;
-                let currentEvents = [...state.events];
-                
-                // 更新物件內容
-                currentEvents[currentIndex].name = newName;
-                currentEvents[currentIndex].players = newPlayers; 
+                // v2.7.3 新增：檢查重複姓名防呆
+                const uniquePlayers = new Set(newPlayers);
+                if (uniquePlayers.size !== newPlayers.length) {
+                    // 找出重複的名字以便提示
+                    const duplicates = newPlayers.filter((item, index) => newPlayers.indexOf(item) !== index);
+                    const dupMsg = [...new Set(duplicates)].join(', '); // 去重後顯示
 
-                // v2.6.0: 智慧清理分配 (若選手已不在新名單中，則移除其分配)
-                // 如果 newPlayers 是空的，則直接清空 assignments
-                if (newPlayers.length === 0) {
-                    currentEvents[currentIndex].playerAssignments = {};
-                } else {
-                    // 若有新名單，檢查現有分配是否有效
-                    const validAssignments = {};
-                    if(currentEvents[currentIndex].playerAssignments) {
-                        for(const [rank, name] of Object.entries(currentEvents[currentIndex].playerAssignments)) {
-                            // 只有當被分配的名字，依然存在於新名單中時，才保留
-                            if(newPlayers.includes(name)) {
-                                validAssignments[rank] = name;
+                    showCustomConfirm(
+                        '⚠️ 發現重複姓名', 
+                        `名單中包含重複的姓名：\n[ ${dupMsg} ]\n\n您確定輸入正確並要儲存嗎？`, 
+                        () => executeSave(), // callback: 確認後才執行儲存
+                        true // skipCountdown: 不需要倒數，直接顯示按鈕
+                    );
+                    return; // 暫停執行，等待使用者確認
+                }
+
+                // 若無重複，直接儲存
+                executeSave();
+
+                // 內部函式：執行實際的資料庫寫入
+                function executeSave() {
+                    const targetIndex = newIndexInputVal - 1;
+                    let currentEvents = [...state.events];
+                    
+                    // 更新物件內容
+                    currentEvents[currentIndex].name = newName;
+                    currentEvents[currentIndex].players = newPlayers; 
+
+                    // v2.6.0: 智慧清理分配 (若選手已不在新名單中，則移除其分配)
+                    if (newPlayers.length === 0) {
+                        currentEvents[currentIndex].playerAssignments = {};
+                    } else {
+                        const validAssignments = {};
+                        if(currentEvents[currentIndex].playerAssignments) {
+                            for(const [rank, name] of Object.entries(currentEvents[currentIndex].playerAssignments)) {
+                                if(newPlayers.includes(name)) {
+                                    validAssignments[rank] = name;
+                                }
                             }
+                            currentEvents[currentIndex].playerAssignments = validAssignments;
                         }
-                        currentEvents[currentIndex].playerAssignments = validAssignments;
                     }
-                }
 
-                if (currentIndex !== targetIndex) {
-                    let safeTarget = targetIndex;
-                    if (safeTarget >= currentEvents.length) safeTarget = currentEvents.length - 1;
-                    if (safeTarget < 0) safeTarget = 0;
-                    const itemToMove = currentEvents[currentIndex];
-                    currentEvents.splice(currentIndex, 1);
-                    currentEvents.splice(safeTarget, 0, itemToMove);
-                }
+                    if (currentIndex !== targetIndex) {
+                        let safeTarget = targetIndex;
+                        if (safeTarget >= currentEvents.length) safeTarget = currentEvents.length - 1;
+                        if (safeTarget < 0) safeTarget = 0;
+                        const itemToMove = currentEvents[currentIndex];
+                        currentEvents.splice(currentIndex, 1);
+                        currentEvents.splice(safeTarget, 0, itemToMove);
+                    }
 
-                db.ref(`${APP_DATA_PATH}/events`).set(currentEvents).then(() => {
-                    closeEditEventModal();
-                    showToast('項目修改與選手名單已更新');
-                });
+                    db.ref(`${APP_DATA_PATH}/events`).set(currentEvents).then(() => {
+                        closeEditEventModal();
+                        showToast('項目修改與選手名單已更新');
+                    });
+                }
             }
 
             function handleDuplicateEvent() {
