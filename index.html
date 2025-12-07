@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.6.1</title>
+    <title>蓮小終點計時組 v2.7.2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -42,6 +42,26 @@
     <style>
         /* === 全局字體與基礎樣式 === */
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f3f4f6; font-size: 16px; }
+		/* v2.7.0 擇優功能樣式 - v2.7.2 優化版：放大與定位調整 */
+        .qualify-mark { 
+            position: absolute; /* 修改：絕對定位 */
+            bottom: -6px;       /* 修改：固定在右下角 (可依需求微調) */
+            right: -16px;        /* 修改：固定在右下角 */
+            display: inline-flex; align-items: center; justify-content: center; 
+            width: 24px;        /* 修改：加大寬度，方便點擊 */
+            height: 24px;       /* 修改：加大高度，方便點擊 */
+            background-color: #10b981; color: white; border-radius: 50%; 
+            font-size: 14px;    /* 修改：加大字體 */
+            z-index: 20;        /* 確保層級 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+            cursor: pointer;    /* 讓滑鼠變成手指 */
+            transition: transform 0.2s;
+        }
+        .qualify-mark:hover { transform: scale(1.15); } /* 懸浮放大效果 */
+        
+        .qualify-conflict { color: #dc2626 !important; font-weight: 800 !important; background-color: #fecaca !important; border: 1px solid #ef4444; }
+        /* 在靜態報表中顯示 */
+        @media print { .qualify-mark { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none; position: static; margin-left: 4px; width: 16px; height: 16px; font-size: 10px; } }
         /* === v2.5.0 新增樣式：選手標籤 === */
         .player-tag { display: block; font-size: 0.75rem; line-height: 1.2; color: #4b5563; background-color: rgba(255,255,255,0.6); padding: 1px 4px; border-radius: 4px; margin: 0 auto 2px auto; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
         .player-tag:hover { background-color: #fff; color: #2563eb; }
@@ -49,21 +69,21 @@
             display: inline-flex; 
             align-items: center; 
             justify-content: center; 
-            width: 28px;   /* 修改這裡：寬度變大 (原本20px) */
-            height: 28px;  /* 修改這裡：高度變大 (原本20px) */
+            width: 28px;   
+            height: 28px;  
             background-color: #3b82f6; 
             color: white; 
             border-radius: 50%; 
-            font-size: 18px; /* 修改這裡：符號變大 (原本14px) */
+            font-size: 18px; 
             line-height: 1; 
             border: 2px solid white; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
             cursor: pointer; 
             position: absolute; 
-            top: -18px;    /* 修改這裡：位置稍微往右上角外推，避免遮擋 */
-            right: -18px;  /* 修改這裡：位置稍微往右上角外推 */
+            top: -14px;    /* 修改：保持在右上角，稍微上移 */
+            right: -14px;  /* 修改：保持在右上角，稍微右移 */
             transition: transform 0.2s, background-color 0.2s; 
-            z-index: 10; 
+            z-index: 25;   /* 確保比擇優圖標高一點 */
         }
         .btn-assign-player:hover { background-color: #2563eb; transform: scale(1.1); }
         .time-cell-content { position: relative; display: inline-block; min-width: 80px; } /* 讓內容相對定位以便放置按鈕 */
@@ -292,6 +312,8 @@
             .cell-action-btn, .conflict-btn-container, .cell-sort-btn, .cell-ok-btn { display: none; }
             .row-complete-highlight { background-color: #dcfce7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
+		/* v2.7.2 修正：確保確認視窗在最上層 (高於擇優視窗的 z-85) */
+        #custom-confirm-modal { z-index: 100 !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 sm:p-8">
@@ -350,7 +372,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.6.1</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.2</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -370,6 +392,11 @@
             </div>
 
             <div class="flex items-center bg-white rounded-lg shadow-sm p-2 gap-2 no-print border border-gray-200">
+                <button id="btn-qualification" class="hidden bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-200 font-bold py-1 px-3 rounded-lg flex items-center gap-1 transition text-sm mr-2" title="設定計時擇優規則">
+                    <span>🏆</span> 擇優
+                </button>
+                <div class="h-6 w-px bg-gray-300 mx-1 hidden" id="qualify-divider"></div>
+                
                 <span class="text-gray-700 mr-2 font-medium">顯示名次：</span>
                 <button id="btn-rank-minus" class="bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition duration-200">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
@@ -688,6 +715,63 @@
             </div>
         </div>
     </div>
+	<div id="qualify-edit-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[90] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-6 transform w-full max-w-xs text-center">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">手動調整晉級狀態</h3>
+            <div class="grid grid-cols-3 gap-3">
+                <button onclick="setManualQualify('auto')" class="flex flex-col items-center justify-center p-3 rounded-lg bg-green-50 border border-green-200 hover:bg-green-100 transition">
+                    <span class="text-2xl mb-1">✔</span>
+                    <span class="text-xs font-bold text-green-700">入選</span>
+                </button>
+                <button onclick="setManualQualify('conflict')" class="flex flex-col items-center justify-center p-3 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 transition">
+                    <span class="text-2xl mb-1">❓</span>
+                    <span class="text-xs font-bold text-red-700">衝突</span>
+                </button>
+                <button onclick="setManualQualify(null)" class="flex flex-col items-center justify-center p-3 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition">
+                    <span class="text-xl mb-1 text-gray-400">❌</span>
+                    <span class="text-xs font-bold text-gray-600">清除</span>
+                </button>
+            </div>
+            <button onclick="closeQualifyEditModal()" class="mt-4 text-gray-500 hover:text-gray-700 text-sm underline">取消</button>
+        </div>
+    </div>
+	<div id="qualification-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[85] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform flex flex-col max-h-[90vh]">
+            <header class="flex justify-between items-center mb-4 flex-shrink-0">
+                <h2 class="text-xl font-bold text-gray-800">🏆 計時擇優設定</h2>
+                <button id="btn-close-qualification-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            
+            <div class="flex-grow overflow-y-auto">
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 mb-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">1. 分組優先入選 (名/組)</label>
+                        <input type="number" id="input-qualify-auto" class="w-full rounded border-gray-300 p-2 shadow-sm focus:border-purple-500 focus:ring-purple-500" value="1" min="0">
+                        <p class="text-xs text-gray-500 mt-1">每組前幾名直接晉級 (填 0 代表全靠時間)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">2. 擇優比較入選 (共幾名)</label>
+                        <input type="number" id="input-qualify-time" class="w-full rounded border-gray-300 p-2 shadow-sm focus:border-purple-500 focus:ring-purple-500" value="4" min="0">
+                        <p class="text-xs text-gray-500 mt-1">除去優先入選者後，全體秒數最快的前幾名</p>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">3. 勾選要合併比較的項目</label>
+                    <div id="qualification-events-list" class="space-y-2 border border-gray-200 rounded-lg p-2 max-h-60 overflow-y-auto bg-gray-50">
+                        </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 flex-shrink-0 border-t border-gray-100 mt-2">
+                <button type="button" id="btn-clear-qualification" class="mr-auto text-red-500 hover:text-red-700 text-sm font-medium">清除設定</button>
+                <button type="button" id="btn-cancel-qualification" class="bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                <button type="button" id="btn-save-qualification" class="bg-purple-600 text-white hover:bg-purple-700 font-medium py-2 px-5 rounded-lg transition duration-200 shadow-md">儲存並計算</button>
+            </div>
+        </div>
+    </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
@@ -720,7 +804,9 @@
             let state = {
                 rankCount: 7, maxRank: 12, minRank: 1,
                 events: [],
-                refereeConfig: { names: [], assignments: {}, customRoles: [] }, // 新增裁判設定
+                refereeConfig: { names: [], assignments: {}, customRoles: [] }, 
+                qualificationConfig: { autoCount: 1, timeCount: 4, targetEvents: [] }, // v2.7.0 擇優設定
+                qualificationResults: {}, // v2.7.0 計算結果快取
                editingTime: { eventIndex: null, rank: null },
                 assigningPlayer: { eventIndex: null, rank: null }, // v2.5.0 新增：正在分配選手的狀態
                 confirmCallback: null, confirmInterval: null, 
@@ -920,6 +1006,9 @@
                     if (state.passwordCallback) state.passwordCallback();
                     closePasswordModal();
                     renderTable(); // Re-render to show OK buttons
+					// v2.7.0 顯示擇優按鈕
+                    document.getElementById('btn-qualification').classList.remove('hidden');
+                    document.getElementById('qualify-divider').classList.remove('hidden');
                     showToast('🔒 已進入管理者模式', 'success');
                 } else {
                     passwordError.classList.remove('hidden');
@@ -1260,6 +1349,7 @@
 
           function renderTableBody() {
                 tableBody.innerHTML = ''; 
+				calculateQualificationResults(); // v2.7.0 重繪前先計算擇優
                 const events = Array.isArray(state.events) ? state.events : [];
                 if (events.length === 0) {
                     const tr = document.createElement('tr');
@@ -1350,9 +1440,27 @@
                             // 1. Player Tag
                             let playerHtml = '';
                             if (playerAssignments[i]) {
-                                // v2.6.0: 如果是管理員，顯示可點擊樣式；否則顯示純文字樣式(無 hover 效果)
                                 const cursorClass = state.isAdminAuthenticated ? 'cursor-pointer hover:bg-white hover:text-blue-600' : 'cursor-default';
                                 playerHtml = `<span class="player-tag ${cursorClass}" title="${state.isAdminAuthenticated ? '點擊修改選手' : '選手姓名'}">${playerAssignments[i]}</span>`;
+                            }
+
+                          // v2.7.0 擇優標記 (讀取單項資料庫)
+                            let qualifyMarkHtml = '';
+                            let qualifyClass = '';
+                            // 讀取該項目的 qualifyStatus
+                            const qStatus = (event.qualifyStatus && event.qualifyStatus[i]) ? event.qualifyStatus[i] : null;
+                            
+                            // 判斷是否為管理者 (用於開啟手動修改)
+                            const adminClickAttr = state.isAdminAuthenticated ? `onclick="openQualifyEditModal(${index}, ${i}, event)" style="cursor:pointer;"` : '';
+                            
+                            if (qStatus === 'auto' || qStatus === 'time') {
+                                qualifyMarkHtml = `<span class="qualify-mark" title="已入選 (點擊修改)" ${adminClickAttr}>✔</span>`;
+                            } else if (qStatus === 'conflict') {
+                                qualifyClass = 'qualify-conflict';
+                                qualifyMarkHtml = `<span class="text-[10px] text-red-600 font-bold ml-1 cursor-pointer" title="同分衝突 (點擊修改)" ${adminClickAttr}>❓</span>`;
+                            } else if (state.isAdminAuthenticated) {
+                                // 管理者模式下，即使沒有標記，也顯示一個透明的佔位符供點擊
+                                qualifyMarkHtml = `<span class="qualify-mark" style="background-color:transparent; color:transparent; border:1px dashed #ccc; cursor:pointer; opacity:0.3;" title="手動設定" ${adminClickAttr}>+</span>`;
                             }
 
                             // 2. Time Display
@@ -1361,14 +1469,16 @@
                             // 3. Assign Button (+) (Strictly Admin Only)
                             let btnHtml = '';
                             if (hasPlayersList && state.isAdminAuthenticated) {
-                                // 管理員模式且有選手名單，才顯示 + 號
                                 if (!playerAssignments[i]) {
                                     btnHtml = `<button class="btn-assign-player no-print" title="分配選手">＋</button>`;
                                 }
                             }
                             
-                            // Combine using relative container without whitespace
-                            cellContent = `<div class="time-cell-content">${playerHtml}${timeHtml}${btnHtml}</div>`;
+                            // v2.7.2 Combine: 將 qualifyMarkHtml 獨立出來以便 CSS absolute 定位 (右下角)
+                            cellContent = `<div class="time-cell-content">${playerHtml}${timeHtml}${qualifyMarkHtml}${btnHtml}</div>`;
+
+                            // v2.7.0 套用衝突或入選樣式
+                            if (qualifyClass) tdRank.classList.add(qualifyClass);
                         }
                         
                         const swapBtnContainerId = `swap-btn-container-${index}-${i}`;
@@ -1809,7 +1919,8 @@
                 const recordData = { 
                     events: JSON.parse(JSON.stringify(state.events)), 
                     rankCount: state.rankCount,
-                    refereeConfig: JSON.parse(JSON.stringify(state.refereeConfig || { names: [], assignments: {}, customRoles: [] }))
+                    refereeConfig: JSON.parse(JSON.stringify(state.refereeConfig || { names: [], assignments: {}, customRoles: [] })),
+                    qualificationConfig: JSON.parse(JSON.stringify(state.qualificationConfig || {})) // v2.7.0
                 };
                 
                 const snapshotObject = { title: title, data: recordData, createdAt: firebase.database.ServerValue.TIMESTAMP };
@@ -1841,6 +1952,9 @@
                 btnActionLogoutAdmin.classList.add('hidden'); 
                 closeActionsModal(); 
                 renderTable(); 
+				// v2.7.0 隱藏擇優按鈕
+                document.getElementById('btn-qualification').classList.add('hidden');
+                document.getElementById('qualify-divider').classList.add('hidden');
                 showToast('已退出管理者模式', 'success');
             }
             
@@ -1871,6 +1985,7 @@ function generateStaticHtml() {
                 for (let i = 1; i <= rankCount; i++) {
                     ths += `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; min-width: 80px;">${i} 名</th>`;
                 }
+				calculateQualificationResults(); // v2.7.0 Ensure results are ready
                 let trs = '';
                 
                 (state.events || []).forEach((event, index) => {
@@ -1892,7 +2007,7 @@ function generateStaticHtml() {
                         }
                     }
                     const isComplete = (allRanksFilled && !hasErrors) || event.manualComplete;
-                    const completeStyle = isComplete ? 'background-color: #dcfce7;' : ''; 
+                   const completeStyle = isComplete ? 'background-color: #ffffff;' : '';
 
                     let tds = `<td style="padding: 6px 10px; text-align: center; border: 1px solid #ccc;">${index + 1}</td>`;
                     tds += `<td style="padding: 6px 10px; text-align: left; border: 1px solid #ccc; font-weight: 500;">${event.name}</td>`;
@@ -1914,7 +2029,21 @@ function generateStaticHtml() {
                              playerHtml = `<div class="static-player-tag">${playerAssignments[i]}</div>`;
                         }
 
-                        tds += `<td style="padding: 6px 4px; text-align: center; border: 1px solid #ccc; font-family: 'Courier New', monospace; ${errorStyle} vertical-align: middle;">${playerHtml}${timeText}</td>`;
+                       // v2.7.0 Export Qualification Mark
+                        let qMark = '';
+                        let qStyle = '';
+                        // 改為讀取 qualifyStatus
+                        if (event.qualifyStatus && event.qualifyStatus[i]) {
+                            const status = event.qualifyStatus[i];
+                            if (status === 'auto' || status === 'time') {
+                                qMark = '<span style="color:#10b981; margin-left:4px; font-weight:bold;">✔</span>';
+                            } else if (status === 'conflict') {
+                                qStyle = 'background-color: #fecaca !important; color: #dc2626 !important; font-weight: bold;';
+                                qMark = '<span style="color:#dc2626; margin-left:4px;">?</span>';
+                            }
+                        }
+
+                        tds += `<td style="padding: 6px 4px; text-align: center; border: 1px solid #ccc; font-family: 'Courier New', monospace; ${errorStyle} ${qStyle} vertical-align: middle;">${playerHtml}${timeText}${qMark}</td>`;
                     }
                     const bgStyle = (index % 2 !== 0 && !isComplete) ? 'background-color: #f9fafb;' : ''; 
                     trs += `<tr style="${bgStyle} ${completeStyle}">${tds}</tr>`;
@@ -2046,6 +2175,13 @@ function generateStaticHtml() {
             // --- Event Listeners ---
             btnRankMinus.addEventListener('click', () => updateRankCount(-1));
             btnRankPlus.addEventListener('click', () => updateRankCount(1));
+			// v2.7.0 Qualification Events
+            document.getElementById('btn-qualification').addEventListener('click', openQualificationModal);
+            document.getElementById('btn-close-qualification-modal').addEventListener('click', closeQualificationModal);
+            document.getElementById('btn-cancel-qualification').addEventListener('click', closeQualificationModal);
+            document.getElementById('btn-save-qualification').addEventListener('click', handleSaveQualification);
+            document.getElementById('btn-clear-qualification').addEventListener('click', clearQualificationConfig);
+            document.getElementById('qualification-modal').addEventListener('click', (e) => e.target === document.getElementById('qualification-modal') && closeQualificationModal());
             btnOpenModal.addEventListener('click', openEventModal);
             btnCloseModal.addEventListener('click', closeEventModal);
             btnCancelModal.addEventListener('click', closeEventModal);
@@ -2170,7 +2306,191 @@ function generateStaticHtml() {
             toggleContinuous.addEventListener('change', toggleContinuousMode); 
 
             // --- Init ---
-            function setupFirebaseListeners() {
+            // --- v2.7.0 Logic: Qualification (計時擇優) ---
+
+            function openQualificationModal() {
+                // 載入當前設定
+                const config = state.qualificationConfig || { autoCount: 1, timeCount: 4, targetEvents: [] };
+                document.getElementById('input-qualify-auto').value = config.autoCount;
+                document.getElementById('input-qualify-time').value = config.timeCount;
+                
+                // 生成項目勾選清單
+                const listContainer = document.getElementById('qualification-events-list');
+                // 這裡使用壓縮 HTML 以符合 innerHTML 規範
+                let listHtml = '';
+                if(state.events.length === 0) {
+                    listHtml = `<div class="text-gray-500 text-center p-4">目前沒有賽事項目</div>`;
+                } else {
+                    state.events.forEach((ev, idx) => {
+                        // v2.7.2 修改：不載入上次勾選狀態，讓使用者每次重新選擇
+                        // const isChecked = config.targetEvents && config.targetEvents.includes(idx) ? 'checked' : ''; 
+                        const isChecked = ''; 
+                        
+                        // 確保標籤之間無空白
+                        listHtml += `<label class="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer border-b border-gray-100 last:border-0"><input type="checkbox" class="q-event-checkbox w-4 h-4 text-purple-600 rounded focus:ring-purple-500 border-gray-300 mr-2" value="${idx}" ${isChecked}><span class="text-sm text-gray-700 font-medium">${ev.name}</span></label>`;
+                    });
+                }
+                listContainer.innerHTML = listHtml;
+                
+                document.getElementById('qualification-modal').classList.remove('hidden');
+                document.getElementById('qualification-modal').classList.add('visible');
+            }
+
+            function closeQualificationModal() {
+                document.getElementById('qualification-modal').classList.remove('visible');
+                document.getElementById('qualification-modal').classList.add('hidden');
+            }
+
+           function handleSaveQualification() {
+                if (!isFirebaseEnabled) { showToast('離線模式無法儲存', 'error'); return; }
+                
+                const autoCount = parseInt(document.getElementById('input-qualify-auto').value) || 0;
+                const timeCount = parseInt(document.getElementById('input-qualify-time').value) || 0;
+                
+                const selectedCheckboxes = document.querySelectorAll('.q-event-checkbox:checked');
+                const targetEvents = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+
+                if (targetEvents.length === 0) {
+                    showToast('請至少勾選一個項目', 'error');
+                    return;
+                }
+
+                // 先儲存設定 (方便下次開啟時記得選了什麼)
+                const newConfig = { autoCount, timeCount, targetEvents };
+                db.ref(`${APP_DATA_PATH}/qualificationConfig`).set(newConfig);
+
+                // --- 開始計算並寫入 (蓋章) ---
+                let wildcardPool = []; // 擇優池
+                const updates = {}; // Firebase 批次更新物件
+
+                targetEvents.forEach(eventIndex => {
+                    const event = state.events[eventIndex];
+                    if (!event || !event.ranks) return;
+
+                    // 1. 分組優先入選 & 收集擇優池
+                    for (let rank = 1; rank <= state.rankCount; rank++) {
+                        const time = event.ranks[rank];
+                        if (time !== undefined && time !== null) {
+                            // 先清空該項目的舊狀態 (避免殘留)
+                            updates[`${APP_DATA_PATH}/events/${eventIndex}/qualifyStatus/${rank}`] = null;
+
+                            if (rank <= autoCount) {
+                                // 優先入選
+                                updates[`${APP_DATA_PATH}/events/${eventIndex}/qualifyStatus/${rank}`] = 'auto';
+                            } else {
+                                // 加入擇優池
+                                wildcardPool.push({
+                                    eventIndex: eventIndex,
+                                    rank: rank,
+                                    time: time
+                                });
+                            }
+                        }
+                    }
+                });
+
+                // 2. 處理擇優比較
+                if (timeCount > 0 && wildcardPool.length > 0) {
+                    wildcardPool.sort((a, b) => a.time - b.time); // 時間小到大
+                    
+                    const cutoffIndex = Math.min(timeCount, wildcardPool.length) - 1;
+                    
+                    if (cutoffIndex >= 0) {
+                        const cutoffTime = wildcardPool[cutoffIndex].time;
+                        let hasConflict = false;
+                        
+                        // 檢查超額同分
+                        if (wildcardPool.length > timeCount) {
+                            const nextPersonTime = wildcardPool[timeCount].time;
+                            if (nextPersonTime === cutoffTime) {
+                                hasConflict = true;
+                            }
+                        }
+
+                        wildcardPool.forEach((candidate, idx) => {
+                            if (candidate.time < cutoffTime) {
+                                updates[`${APP_DATA_PATH}/events/${candidate.eventIndex}/qualifyStatus/${candidate.rank}`] = 'time';
+                            } else if (candidate.time === cutoffTime) {
+                                if (hasConflict) {
+                                    updates[`${APP_DATA_PATH}/events/${candidate.eventIndex}/qualifyStatus/${candidate.rank}`] = 'conflict';
+                                } else if (idx <= cutoffIndex) {
+                                    updates[`${APP_DATA_PATH}/events/${candidate.eventIndex}/qualifyStatus/${candidate.rank}`] = 'time';
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // 3. 執行批次寫入
+                db.ref().update(updates).then(() => {
+                    closeQualificationModal();
+                    showToast(`✅ 已對 ${targetEvents.length} 個項目完成擇優標記`);
+                });
+            }
+
+           function clearQualificationConfig() {
+                 if (!isFirebaseEnabled) return;
+                 // v2.7.2 修改：清除設定時，同時清除資料庫內所有項目的擇優標記 (qualifyStatus)
+                 showCustomConfirm('清除擇優設定', '確定要取消所有擇優計算嗎？\n(這將會移除頁面上所有的綠色勾勾與衝突標記)', () => {
+                     const updates = {};
+                     // 1. 清除設定檔
+                     updates[`${APP_DATA_PATH}/qualificationConfig`] = null;
+                     
+                     // 2. 遍歷所有事件，清除狀態
+                     if (state.events && state.events.length > 0) {
+                         state.events.forEach((ev, idx) => {
+                             if (ev.qualifyStatus) {
+                                 updates[`${APP_DATA_PATH}/events/${idx}/qualifyStatus`] = null;
+                             }
+                         });
+                     }
+
+                     db.ref().update(updates).then(() => {
+                        closeQualificationModal();
+                        showToast('✅ 已清除所有擇優設定與標記');
+                     });
+                 });
+            }
+
+            // v2.7.1 手動調整擇優狀態相關功能
+            let editingQualify = { eventIndex: null, rank: null };
+            
+            // 為了讓 HTML onclick 呼叫，需掛載到 window
+            window.openQualifyEditModal = function(eventIndex, rank, e) {
+                if (e) e.stopPropagation(); // 阻止冒泡
+                if (!state.isAdminAuthenticated) return;
+                
+                editingQualify = { eventIndex, rank };
+                document.getElementById('qualify-edit-modal').classList.remove('hidden');
+                document.getElementById('qualify-edit-modal').classList.add('visible');
+            };
+
+            window.closeQualifyEditModal = function() {
+                document.getElementById('qualify-edit-modal').classList.remove('visible');
+                document.getElementById('qualify-edit-modal').classList.add('hidden');
+                editingQualify = { eventIndex: null, rank: null };
+            };
+
+            window.setManualQualify = function(status) {
+                if (!isFirebaseEnabled) return;
+                const { eventIndex, rank } = editingQualify;
+                if (eventIndex === null || rank === null) return;
+
+                // 直接更新該格的狀態
+                db.ref(`${APP_DATA_PATH}/events/${eventIndex}/qualifyStatus/${rank}`).set(status).then(() => {
+                    closeQualifyEditModal();
+                    // 根據狀態顯示不同提示
+                    const msg = status === 'auto' ? '已標記為入選' : (status === 'conflict' ? '已標記為衝突' : '已清除標記');
+                    showToast(`✅ ${msg}`);
+                });
+            };
+
+            // 舊計算函式已移除，改為直接讀取 DB 欄位
+            function calculateQualificationResults() {
+                // v2.7.1: 此函式保留空殼以防舊代碼呼叫報錯，實際功能已移轉至 handleSaveQualification
+                state.qualificationResults = {}; 
+            }
+			function setupFirebaseListeners() {
                 db.ref(".info/connected").on("value", (snap) => {
                     connectionStatusContainer.innerHTML = snap.val() === true 
                         ? `<div class="connection-status status-connected"><div class="status-dot"></div><span>已連線</span></div>`
@@ -2182,6 +2502,7 @@ function generateStaticHtml() {
                     state.rankCount = (data && data.rankCount) ? data.rankCount : 7;
 					// 讀取裁判設定
                     state.refereeConfig = (data && data.refereeConfig) ? data.refereeConfig : { names: [], assignments: {}, customRoles: [] };
+					state.qualificationConfig = (data && data.qualificationConfig) ? data.qualificationConfig : { autoCount: 1, timeCount: 4, targetEvents: [] };
                     rankCountDisplay.textContent = state.rankCount;
                     renderTable();
                 });
