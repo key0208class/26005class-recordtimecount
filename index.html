@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.7.4</title>
+    <title>蓮小終點計時組 v2.7.5</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -390,7 +390,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.4</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.5</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -677,7 +677,25 @@
             </div>
         </div>
     </div>
-
+<div id="export-html-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[85] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 sm:p-8 transform">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">📄 匯出報表設定</h2>
+            <form id="export-html-form">
+                <div>
+                    <label for="export-title-input" class="block text-sm font-medium text-gray-700 mb-1">報表標題</label>
+                    <input type="text" id="export-title-input" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="輸入標題" required>
+                    <p class="text-xs text-gray-500 mt-2">提示：預設會帶入目前載入的快照名稱。</p>
+                </div>
+                <div class="flex justify-end gap-3 pt-6">
+                    <button type="button" id="btn-cancel-export" class="bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium py-2 px-5 rounded-lg transition duration-200">取消</button>
+                    <button type="submit" class="bg-blue-600 text-white hover:bg-blue-700 font-medium py-2 px-5 rounded-lg transition duration-200 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        確認下載
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div id="password-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4 no-print">
         <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-xs p-6 sm:p-8 transform">
             <h2 class="text-xl font-bold text-gray-800 mb-6">🔒 需要權限</h2>
@@ -818,9 +836,10 @@
                 oscillator.stop(audioCtx.currentTime + 0.15); 
             }
 
-            // --- State Management ---
+           // --- State Management ---
             let state = {
                 rankCount: 7, maxRank: 12, minRank: 1,
+                lastSnapshotTitle: null, // v2.7.5 新增：記錄最後載入的快照名稱
                 events: [],
                 refereeConfig: { names: [], assignments: {}, customRoles: [] }, 
                 qualificationConfig: { autoCount: 1, timeCount: 4, targetEvents: [] }, // v2.7.0 擇優設定
@@ -934,7 +953,11 @@
             const btnCancelPassword = document.getElementById('btn-cancel-password');
             const adminModeBadge = document.getElementById('admin-mode-badge'); 
             const btnActionLogoutAdmin = document.getElementById('btn-action-logout-admin');
-
+// v2.7.5 Export Modal Elements
+            const exportHtmlModal = document.getElementById('export-html-modal');
+            const exportHtmlForm = document.getElementById('export-html-form');
+            const exportTitleInput = document.getElementById('export-title-input');
+            const btnCancelExport = document.getElementById('btn-cancel-export');
             // Stopwatch Elements
             const swToggleBtn = document.getElementById('sw-toggle-btn');
             const swPanel = document.getElementById('sw-panel');
@@ -2061,7 +2084,9 @@
                     if (!snapshot.exists()) return;
                     const record = snapshot.val();
                     showCustomConfirm('載入快照', `確定要載入 "${record.title}" 嗎？將覆蓋目前所有項目。`, () => {
-                        db.ref(APP_DATA_PATH).set(record.data).then(() => showToast('快照載入成功', 'success'));
+                        // v2.7.5: 載入成功後，記錄標題到 state
+                        state.lastSnapshotTitle = record.title; 
+                        db.ref(APP_DATA_PATH).set(record.data).then(() => showToast(`已載入：${record.title}`, 'success'));
                     });
                 });
             }
@@ -2087,40 +2112,68 @@
                 showToast('已退出管理者模式', 'success');
             }
             
-            function handleExportHtml() {
+           // v2.7.5 新增：開啟匯出設定視窗
+            function openExportHtmlModal() {
+                // 決定預設標題：如果有載入過快照，就用快照名；否則用預設名稱
+                const todayStr = new Date().toLocaleDateString();
+                const defaultTitle = state.lastSnapshotTitle || `靜態報表 (${todayStr})`;
+                
+                exportTitleInput.value = defaultTitle;
+                exportHtmlModal.classList.remove('hidden');
+                exportHtmlModal.classList.add('visible');
+                exportTitleInput.focus();
+            }
+
+            function closeExportHtmlModal() {
+                exportHtmlModal.classList.remove('visible');
+                exportHtmlModal.classList.add('hidden');
+            }
+
+            // v2.7.5 修改：接收自訂標題並匯出
+            function handleExportHtml(customTitle) {
                 if (!state.events || state.events.length === 0) { showToast('無資料可匯出', 'error'); return; }
                 try {
-                    const htmlContent = generateStaticHtml();
+                    // 使用傳入的標題，若無則用預設
+                    const reportTitle = customTitle || "靜態報表";
+                    const htmlContent = generateStaticHtml(reportTitle); // 傳遞標題給產生器
+                    
                     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(blob);
+                    
+                    // 檔名也加入標題，方便辨識
+                    const safeTitle = reportTitle.replace(/[\\/:*?"<>|]/g, '_'); // 移除檔名非法字元
                     const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
-                    link.download = `蓮小終點計時組_報表_${timestamp}.html`;
+                    link.download = `蓮小終點計時_${safeTitle}_${timestamp}.html`;
+                    
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(link.href);
-                    showToast('HTML 靜態報表已下載', 'success');
+                    
+                    closeExportHtmlModal(); // 匯出後關閉視窗
+                    showToast('HTML 報表已下載', 'success');
                 } catch (err) {
                     console.error('HTML 下載失敗:', err);
                     showToast('HTML 下載失敗', 'error');
                 }
             }
 
-function generateStaticHtml() {
+function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標題參數
                 const rankCount = state.rankCount;
-                let ths = `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; width: 50px;">序號</th>`;
-                ths += `<th style="padding: 8px 10px; text-align: left; border: 1px solid #ccc;">項目</th>`;
+                // v2.7.5: 優化表頭樣式
+                let ths = `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; width: 50px; background-color: #f3f4f6;">序號</th>`;
+                ths += `<th style="padding: 8px 10px; text-align: left; border: 1px solid #ccc; background-color: #f3f4f6;">項目</th>`;
                 for (let i = 1; i <= rankCount; i++) {
-                    ths += `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; min-width: 80px;">${i} 名</th>`;
+                    ths += `<th style="padding: 8px 10px; text-align: center; border: 1px solid #ccc; min-width: 80px; background-color: #f3f4f6;">${i} 名</th>`;
                 }
-				calculateQualificationResults(); // v2.7.0 Ensure results are ready
+				calculateQualificationResults(); 
                 let trs = '';
                 
                 (state.events || []).forEach((event, index) => {
                     if (!event) return;
                     const eventRanks = event.ranks || {};
-                    const playerAssignments = event.playerAssignments || {}; // v2.6.0 Get assignments
+                    const playerAssignments = event.playerAssignments || {}; 
                     
                     let allRanksFilled = true;
                     let hasErrors = false;
@@ -2152,16 +2205,13 @@ function generateStaticHtml() {
                         }
                         const errorStyle = isError ? 'background-color: #fee2e2; color: #ef4444; font-weight: bold;' : '';
                         
-                        // v2.6.0 Export Player Name
                         let playerHtml = '';
                         if(playerAssignments[i]) {
                              playerHtml = `<div class="static-player-tag">${playerAssignments[i]}</div>`;
                         }
 
-                       // v2.7.0 Export Qualification Mark
                         let qMark = '';
                         let qStyle = '';
-                        // 改為讀取 qualifyStatus
                         if (event.qualifyStatus && event.qualifyStatus[i]) {
                             const status = event.qualifyStatus[i];
                             if (status === 'auto' || status === 'time') {
@@ -2178,7 +2228,6 @@ function generateStaticHtml() {
                     trs += `<tr style="${bgStyle} ${completeStyle}">${tds}</tr>`;
                 });
                 
-                // v2.6.0 Added static-player-tag style
                 const staticStyles = `
                     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif; background-color: #f3f4f6; padding: 20px; font-size: 14px; }
                     .container { max-width: 1200px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; }
@@ -2187,7 +2236,8 @@ function generateStaticHtml() {
                     thead { background-color: #e5e7eb; color: #1f2937; }
                     .static-player-tag { display: inline-block; font-size: 12px; color: #4b5563; background-color: #e5e7eb; padding: 1px 4px; border-radius: 4px; margin-bottom: 2px; }
                 `;
-                return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>終點計時報表</title><style>${staticStyles}</style></head><body><div class="container"><h1>🏅 蓮小終點計時組 - 靜態報表</h1><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div></body></html>`;
+                // v2.7.5: 將 reportTitle 變數插入 HTML 標題中
+                return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>終點計時報表</title><style>${staticStyles}</style></head><body><div class="container"><h1>🏅 蓮小終點計時組 - ${reportTitle}</h1><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div></body></html>`;
             }
 // --- Referee Logic v2.3.0 ---
             const refereeModal = document.getElementById('referee-modal');
@@ -2386,7 +2436,21 @@ function generateStaticHtml() {
             tableHead.addEventListener('click', (e) => { if(e.target.closest('#btn-open-actions-modal')) openPasswordModal(openActionsModal); });
             btnCloseActionsModal.addEventListener('click', closeActionsModal);
             btnActionSave.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return showToast('無項目','error'); openSaveRecordModal(); });
-            btnActionExportHtml.addEventListener('click', () => { closeActionsModal(); handleExportHtml(); });
+          tableHead.addEventListener('click', (e) => { if(e.target.closest('#btn-open-actions-modal')) openPasswordModal(openActionsModal); });
+            btnCloseActionsModal.addEventListener('click', closeActionsModal);
+            btnActionSave.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return showToast('無項目','error'); openSaveRecordModal(); });
+            
+            // v2.7.5 修改：點擊匯出 HTML 時，開啟標題設定視窗
+            btnActionExportHtml.addEventListener('click', () => { closeActionsModal(); openExportHtmlModal(); });
+            
+            // v2.7.5 新增：匯出視窗事件
+            btnCancelExport.addEventListener('click', closeExportHtmlModal);
+            exportHtmlModal.addEventListener('click', (e) => e.target === exportHtmlModal && closeExportHtmlModal());
+            exportHtmlForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                handleExportHtml(exportTitleInput.value.trim());
+            });
+
             btnActionDeleteAll.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return; showCustomConfirm('刪除全部','確定？', deleteAllEvents); });
             // 裁判相關事件
             btnActionReferee.addEventListener('click', () => openPasswordModal(openRefereeModal));
