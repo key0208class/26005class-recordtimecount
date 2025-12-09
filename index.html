@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.7.6</title>
+    <title>蓮小終點計時組 v2.7.7</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -391,7 +392,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.6</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.7</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -666,6 +667,10 @@
                 <button id="btn-action-delete-all" class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     刪除全部項目
+                </button>
+			<button id="btn-action-export-csv" class="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    📊 匯出分組名次 (CSV)
                 </button>
 				<button id="btn-action-referee" class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-3 px-5 rounded-lg transition duration-200">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"></path></svg>
@@ -2120,7 +2125,106 @@
                 exportHtmlModal.classList.remove('visible');
                 exportHtmlModal.classList.add('hidden');
             }
+// v2.7.7 新增：匯出分組名次 CSV (雙列排版修正版)
+            function handleExportCsv() {
+                if (!state.events || state.events.length === 0) { showToast('無資料可匯出', 'error'); return; }
+                
+                // 1. 智慧分組邏輯
+                const groupedData = {};
+                let maxRankFound = 0;
 
+                state.events.forEach(event => {
+                    if (!event.ranks) return;
+                    
+                    // 取得去除尾綴的項目名稱
+                    let baseName = event.name.trim();
+                    baseName = baseName.replace(/[A-Z]+(\*\d+)?$/, '').trim(); 
+
+                    if (!groupedData[baseName]) {
+                        groupedData[baseName] = [];
+                    }
+
+                    // 2. 收集該項目中，擁有「綠色圓圈 (排名)」的選手
+                    for (let r = 1; r <= state.rankCount; r++) {
+                        const qRank = (event.qualifyRank && event.qualifyRank[r]) ? event.qualifyRank[r] : null;
+                        if (qRank) {
+                            const pName = (event.playerAssignments && event.playerAssignments[r]) ? event.playerAssignments[r] : '';
+                            const pTime = (event.ranks && event.ranks[r]) ? event.ranks[r] : null;
+                            
+                            groupedData[baseName].push({
+                                rank: qRank,
+                                name: pName,
+                                time: pTime
+                            });
+                            
+                            if (qRank > maxRankFound) maxRankFound = qRank;
+                        }
+                    }
+                });
+
+                if (Object.keys(groupedData).length === 0) {
+                    showToast('找不到任何已判定名次的資料 (請先執行擇優)', 'error');
+                    return;
+                }
+
+                // 3. 建立 CSV 內容
+                let csvContent = "\uFEFF"; // BOM for Excel
+                
+                // --- 第一列：表頭 (項目名稱, 第1名, 第2名...) ---
+                let header = ["項目名稱"];
+                for (let i = 1; i <= maxRankFound; i++) {
+                    header.push(`第${i}名`);
+                }
+                csvContent += header.join(",") + "\n";
+
+                // --- 內容區塊 (每個項目佔用兩列) ---
+                for (const [name, players] of Object.entries(groupedData)) {
+                    players.sort((a, b) => a.rank - b.rank);
+                    
+                    // Row A: 項目名稱 + 選手姓名
+                    // Row B: "成績" + 選手時間 (位於下方)
+                    
+                    let rowName = [`"${name.replace(/"/g, '""')}"`];
+                    let rowTime = [`"成績"`]; // 這會出現在項目名稱的正下方
+                    
+                    for (let i = 1; i <= maxRankFound; i++) {
+                        const player = players.find(p => p.rank === i);
+                        if (player) {
+                            // 處理姓名 (Row A)
+                            const safeName = player.name ? player.name.replace(/"/g, '""') : "";
+                            rowName.push(`"${safeName}"`);
+                            
+                            // 處理時間 (Row B)
+                            let safeTime = "";
+                            if (player.time !== null) {
+                                const rawTime = formatMillis(player.time);
+                                safeTime = rawTime.replace(/"/g, '""'); // 確保 16"58 格式正確
+                            }
+                            rowTime.push(`"${safeTime}"`);
+                        } else {
+                            rowName.push("");
+                            rowTime.push("");
+                        }
+                    }
+                    
+                    // 將兩列依序寫入 CSV
+                    csvContent += rowName.join(",") + "\n";
+                    csvContent += rowTime.join(",") + "\n";
+                }
+
+                // 4. 下載檔案
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `蓮小分組名次彙整_${timestamp}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                closeActionsModal();
+                showToast('CSV 匯出成功 (雙列格式)', 'success');
+            }
             // v2.7.5 修改：接收自訂標題並匯出
             function handleExportHtml(customTitle) {
                 if (!state.events || state.events.length === 0) { showToast('無資料可匯出', 'error'); return; }
@@ -2438,6 +2542,8 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             btnActionSave.addEventListener('click', () => { closeActionsModal(); if(!state.events.length) return showToast('無項目','error'); openSaveRecordModal(); });
             
             // v2.7.5 修改：點擊匯出 HTML 時，開啟標題設定視窗
+			// v2.7.7
+            document.getElementById('btn-action-export-csv').addEventListener('click', handleExportCsv);
             btnActionExportHtml.addEventListener('click', () => { closeActionsModal(); openExportHtmlModal(); });
             
             // v2.7.5 新增：匯出視窗事件
@@ -2720,7 +2826,7 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
 
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
-                showToast('v2.7.4 精準選時版載入完成', 'success');
+                showToast('v2.7.7 名次匯出版載入完成', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
