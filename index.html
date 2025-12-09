@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.7.5</title>
+    <title>蓮小終點計時組 v2.7.6</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -51,7 +51,8 @@
             width: 24px;        /* 修改：加大寬度，方便點擊 */
             height: 24px;       /* 修改：加大高度，方便點擊 */
             background-color: #10b981; color: white; border-radius: 50%; 
-            font-size: 14px;    /* 修改：加大字體 */
+            font-size: 13px;    /* 修改：v2.7.6 調整字體大小以適應數字 */
+            font-weight: 800;   /* 修改：v2.7.6 數字加粗 */
             z-index: 20;        /* 確保層級 */
             box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
             cursor: pointer;    /* 讓滑鼠變成手指 */
@@ -390,7 +391,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.5</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.6</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -1526,17 +1527,13 @@
                     
                     // v2.7.4 修改：跑者人數圖示 (開放全員顯示)
                     let runnerCountHtml = '';
-                    // 移除 state.isAdminAuthenticated 檢查，讓一般使用者也能看到人數
                     if (event.players && event.players.length > 0) {
                         runnerCountHtml = `<span class="inline-flex items-center justify-center bg-blue-50 text-blue-600 text-xs font-bold px-2 py-1 rounded border border-blue-200 mr-1" title="本組共有 ${event.players.length} 位選手">${event.players.length}🏃</span>`;
                     }
 
                     const sortBtnContainerId = `sort-btn-container-${index}`;
-                    
-                    // Edit Button SVG
                     const editIconSVG = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.815 19.874a2.25 2.25 0 01-1.06.58L3 21l.546-2.828a2.25 2.25 0 01.58-1.06L16.862 4.487z" /></svg>`;
                     
-                    // Manual OK Button SVG
                     let okBtnHtml = '';
                     if (state.isAdminAuthenticated) {
                         const okIconSVG = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
@@ -1544,7 +1541,6 @@
                         okBtnHtml = `<button class="cell-ok-btn btn-manual-ok ${activeClass}" title="手動標記完成 (強制綠色)" data-event-index="${index}">${okIconSVG}</button>`;
                     }
                     
-                    // 使用 innerHTML 一次性渲染，確保無多餘空白節點
                     buttonContainer.innerHTML = `${runnerCountHtml}<span id="${sortBtnContainerId}" class="ml-1"></span><button class="cell-action-btn btn-open-edit-modal" title="編輯項目與序號">${editIconSVG}</button>${okBtnHtml}`;
 
                     flexContainer.appendChild(nameContainer);
@@ -1564,7 +1560,6 @@
                         tdRank.id = `cell-${index}-${i}`;
                         const timeInMs = (event.ranks && event.ranks[i]) ? event.ranks[i] : null;
                         
-                        // v2.6.0 Render Logic (Strict No Whitespace & Admin Check)
                         let cellContent = '';
                         if (timeInMs === undefined || timeInMs === null) {
                             cellContent = `<div class="time-cell-placeholder">${i}</div>`;
@@ -1577,40 +1572,37 @@
                                 playerHtml = `<span class="player-tag ${cursorClass}" title="${state.isAdminAuthenticated ? '點擊修改選手' : '選手姓名'}">${playerAssignments[i]}</span>`;
                             }
 
-                          // v2.7.0 擇優標記 (讀取單項資料庫)
+                            // v2.7.6 擇優標記 (讀取 qualifyStatus 與 qualifyRank)
                             let qualifyMarkHtml = '';
                             let qualifyClass = '';
-                            // 讀取該項目的 qualifyStatus
                             const qStatus = (event.qualifyStatus && event.qualifyStatus[i]) ? event.qualifyStatus[i] : null;
+                            const qRank = (event.qualifyRank && event.qualifyRank[i]) ? event.qualifyRank[i] : null; // v2.7.6 讀取排名
                             
-                            // 判斷是否為管理者 (用於開啟手動修改)
                             const adminClickAttr = state.isAdminAuthenticated ? `onclick="openQualifyEditModal(${index}, ${i}, event)" style="cursor:pointer;"` : '';
                             
                             if (qStatus === 'auto' || qStatus === 'time') {
-                                qualifyMarkHtml = `<span class="qualify-mark" title="已入選 (點擊修改)" ${adminClickAttr}>✔</span>`;
+                                // v2.7.6: 如果有排名數字，顯示數字；否則顯示勾勾
+                                const displayText = qRank ? qRank : '✔';
+                                const displayTitle = qRank ? `總排名: ${qRank} (點擊修改)` : '已入選 (點擊修改)';
+                                qualifyMarkHtml = `<span class="qualify-mark" title="${displayTitle}" ${adminClickAttr}>${displayText}</span>`;
                             } else if (qStatus === 'conflict') {
                                 qualifyClass = 'qualify-conflict';
                                 qualifyMarkHtml = `<span class="text-[10px] text-red-600 font-bold ml-1 cursor-pointer" title="同分衝突 (點擊修改)" ${adminClickAttr}>❓</span>`;
                             } else if (state.isAdminAuthenticated) {
-                                // 管理者模式下，即使沒有標記，也顯示一個透明的佔位符供點擊
                                 qualifyMarkHtml = `<span class="qualify-mark" style="background-color:transparent; color:transparent; border:1px dashed #ccc; cursor:pointer; opacity:0.3;" title="手動設定" ${adminClickAttr}>+</span>`;
                             }
 
                             // 2. Time Display
                             let timeHtml = `<span class="time-text">${formatMillis(timeInMs)}</span>`;
 
-                            // 3. Assign Button (+) (Strictly Admin Only)
+                            // 3. Assign Button
                             let btnHtml = '';
-                            if (hasPlayersList && state.isAdminAuthenticated) {
-                                if (!playerAssignments[i]) {
-                                    btnHtml = `<button class="btn-assign-player no-print" title="分配選手">＋</button>`;
-                                }
+                            if (hasPlayersList && state.isAdminAuthenticated && !playerAssignments[i]) {
+                                btnHtml = `<button class="btn-assign-player no-print" title="分配選手">＋</button>`;
                             }
                             
-                            // v2.7.2 Combine: 將 qualifyMarkHtml 獨立出來以便 CSS absolute 定位 (右下角)
                             cellContent = `<div class="time-cell-content">${playerHtml}${timeHtml}${qualifyMarkHtml}${btnHtml}</div>`;
 
-                            // v2.7.0 套用衝突或入選樣式
                             if (qualifyClass) tdRank.classList.add(qualifyClass);
                         }
                         
@@ -2210,15 +2202,20 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                              playerHtml = `<div class="static-player-tag">${playerAssignments[i]}</div>`;
                         }
 
+                        // v2.7.6 修改：報表也要顯示排名數字
                         let qMark = '';
                         let qStyle = '';
                         if (event.qualifyStatus && event.qualifyStatus[i]) {
                             const status = event.qualifyStatus[i];
+                            const qRank = (event.qualifyRank && event.qualifyRank[i]) ? event.qualifyRank[i] : null;
+
                             if (status === 'auto' || status === 'time') {
-                                qMark = '<span style="color:#10b981; margin-left:4px; font-weight:bold;">✔</span>';
+                                // 若有排名數字顯示數字，否則顯示勾勾
+                                const markContent = qRank ? qRank : '✔';
+                                qMark = `<span style="display:inline-block; width:18px; height:18px; line-height:18px; background-color:#10b981; color:white; border-radius:50%; text-align:center; font-size:11px; font-weight:800; margin-left:4px;">${markContent}</span>`;
                             } else if (status === 'conflict') {
                                 qStyle = 'background-color: #fecaca !important; color: #dc2626 !important; font-weight: bold;';
-                                qMark = '<span style="color:#dc2626; margin-left:4px;">?</span>';
+                                qMark = '<span style="color:#dc2626; margin-left:4px; font-weight:bold;">?</span>';
                             }
                         }
 
@@ -2534,7 +2531,7 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                 document.getElementById('qualification-modal').classList.add('hidden');
             }
 
-           function handleSaveQualification() {
+          function handleSaveQualification() {
                 if (!isFirebaseEnabled) { showToast('離線模式無法儲存', 'error'); return; }
                 
                 const autoCount = parseInt(document.getElementById('input-qualify-auto').value) || 0;
@@ -2555,6 +2552,7 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                 // --- 開始計算並寫入 (蓋章) ---
                 let wildcardPool = []; // 擇優池
                 const updates = {}; // Firebase 批次更新物件
+                let finalQualifiedList = []; // v2.7.6: 用來存放最終所有入選者以進行排序
 
                 targetEvents.forEach(eventIndex => {
                     const event = state.events[eventIndex];
@@ -2566,10 +2564,13 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                         if (time !== undefined && time !== null) {
                             // 先清空該項目的舊狀態 (避免殘留)
                             updates[`${APP_DATA_PATH}/events/${eventIndex}/qualifyStatus/${rank}`] = null;
+                            updates[`${APP_DATA_PATH}/events/${eventIndex}/qualifyRank/${rank}`] = null; // v2.7.6 清除舊排名
 
                             if (rank <= autoCount) {
                                 // 優先入選
                                 updates[`${APP_DATA_PATH}/events/${eventIndex}/qualifyStatus/${rank}`] = 'auto';
+                                // v2.7.6: 優先入選者也加入最終排序清單
+                                finalQualifiedList.push({ eventIndex, rank, time, type: 'auto' });
                             } else {
                                 // 加入擇優池
                                 wildcardPool.push({
@@ -2603,28 +2604,41 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                         wildcardPool.forEach((candidate, idx) => {
                             if (candidate.time < cutoffTime) {
                                 updates[`${APP_DATA_PATH}/events/${candidate.eventIndex}/qualifyStatus/${candidate.rank}`] = 'time';
+                                finalQualifiedList.push({ ...candidate, type: 'time' }); // v2.7.6
                             } else if (candidate.time === cutoffTime) {
                                 if (hasConflict) {
                                     updates[`${APP_DATA_PATH}/events/${candidate.eventIndex}/qualifyStatus/${candidate.rank}`] = 'conflict';
+                                    // 衝突者不列入 Ranking 數字 (因為無法決定誰前誰後)，顯示問號
                                 } else if (idx <= cutoffIndex) {
                                     updates[`${APP_DATA_PATH}/events/${candidate.eventIndex}/qualifyStatus/${candidate.rank}`] = 'time';
+                                    finalQualifiedList.push({ ...candidate, type: 'time' }); // v2.7.6
                                 }
                             }
                         });
                     }
                 }
 
-                // 3. 執行批次寫入
+                // v2.7.6: 3. 計算總排序並寫入 qualifyRank
+                // 將所有確定入選者 (包含優先與擇優) 依時間排序
+                if (finalQualifiedList.length > 0) {
+                    finalQualifiedList.sort((a, b) => a.time - b.time);
+                    finalQualifiedList.forEach((item, index) => {
+                        // 寫入排名 (index + 1)
+                        updates[`${APP_DATA_PATH}/events/${item.eventIndex}/qualifyRank/${item.rank}`] = index + 1;
+                    });
+                }
+
+                // 4. 執行批次寫入
                 db.ref().update(updates).then(() => {
                     closeQualificationModal();
-                    showToast(`✅ 已對 ${targetEvents.length} 個項目完成擇優標記`);
+                    showToast(`✅ 已對 ${targetEvents.length} 個項目完成擇優與排序`);
                 });
             }
 
-           function clearQualificationConfig() {
+          function clearQualificationConfig() {
                  if (!isFirebaseEnabled) return;
-                 // v2.7.2 修改：清除設定時，同時清除資料庫內所有項目的擇優標記 (qualifyStatus)
-                 showCustomConfirm('清除擇優設定', '確定要取消所有擇優計算嗎？\n(這將會移除頁面上所有的綠色勾勾與衝突標記)', () => {
+                 // v2.7.6 修改：清除設定時，同時清除資料庫內所有項目的擇優標記與排名
+                 showCustomConfirm('清除擇優設定', '確定要取消所有擇優計算嗎？\n(這將會移除頁面上所有的綠色勾勾與排序數字)', () => {
                      const updates = {};
                      // 1. 清除設定檔
                      updates[`${APP_DATA_PATH}/qualificationConfig`] = null;
@@ -2632,9 +2646,8 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                      // 2. 遍歷所有事件，清除狀態
                      if (state.events && state.events.length > 0) {
                          state.events.forEach((ev, idx) => {
-                             if (ev.qualifyStatus) {
-                                 updates[`${APP_DATA_PATH}/events/${idx}/qualifyStatus`] = null;
-                             }
+                             if (ev.qualifyStatus) updates[`${APP_DATA_PATH}/events/${idx}/qualifyStatus`] = null;
+                             if (ev.qualifyRank) updates[`${APP_DATA_PATH}/events/${idx}/qualifyRank`] = null; // v2.7.6
                          });
                      }
 
