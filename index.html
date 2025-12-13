@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.7.7</title>
+    <title>蓮小終點計時組 v2.8.2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -308,7 +308,13 @@
         }
         .sw-toggle-btn:hover { background-color: #1d4ed8; transform: scale(1.05); }
         .sw-toggle-btn.active { background-color: #ef4444; }
-
+/* v2.8.0 託管功能樣式 */
+        .sw-btn-host { background-color: #8b5cf6; color: white; } /* 紫色 */
+        .sw-btn-host:hover { background-color: #7c3aed; }
+        .sw-hosting-pulse { animation: host-pulse 1.5s infinite; background-color: #7c3aed; box-shadow: 0 0 15px #8b5cf6; }
+        @keyframes host-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .sw-host-info { font-size: 0.75rem; color: #a78bfa; margin-right: 8px; display: flex; align-items: center; gap: 4px; background: rgba(139, 92, 246, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(139, 92, 246, 0.3); }
         /* 列印設定 */
         @media print {
             body { font-size: 12px; background-color: white; }
@@ -345,8 +351,15 @@
                     </div>
                 </div>
                 <div class="flex flex-col items-end">
-                    <span class="text-xs font-bold text-gray-400 tracking-wider uppercase">Pro Stopwatch</span>
-                    <span class="text-[10px] text-gray-500">僅本機有效</span>
+                    <div class="flex items-center gap-2">
+                        <div id="sw-host-count-display" class="sw-host-info hidden" title="目前託管中的裁判人數">
+                            <span class="animate-pulse">📡</span> <span id="sw-host-num">0</span>人
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <span class="text-xs font-bold text-gray-400 tracking-wider uppercase">Pro Stopwatch</span>
+                            <span class="text-[10px] text-gray-500">v2.8.2</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -362,7 +375,12 @@
                     <label for="toggle-vibration" class="toggle-label"></label>
                 </div>
                 <div class="sw-setting-item">
-                    <span title="開啟後使用計次(Split)功能">🔄 連續計時</span>
+                    <span title="開啟後顯示託管按鈕">📡 託管模式</span>
+                    <input type="checkbox" id="toggle-hosting-mode" class="toggle-checkbox">
+                    <label for="toggle-hosting-mode" class="toggle-label"></label>
+                </div>
+                <div class="sw-setting-item">
+                    <span>🔄 連續計時</span>
                     <input type="checkbox" id="toggle-continuous" class="toggle-checkbox">
                     <label for="toggle-continuous" class="toggle-label"></label>
                 </div>
@@ -375,6 +393,7 @@
             <div class="sw-controls">
                 <button id="sw-btn-reset" class="sw-btn sw-btn-reset" title="歸零 (需確認)">🔄</button>
                 
+                <button id="sw-btn-host" class="sw-btn sw-btn-host hidden" title="碼表託管 (等待統一發令)">📡</button>
                 <button id="sw-btn-start" class="sw-btn sw-btn-start" title="開始">▶️</button>
                 <button id="sw-btn-pause" class="sw-btn sw-btn-pause hidden" title="暫停">⏸️</button>
 
@@ -392,7 +411,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.7.7</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.8.2</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -843,15 +862,19 @@
             }
 
            // --- State Management ---
+            // v2.8.0 新增 Firebase 路徑常數
+            const HOST_COUNT_PATH = 'appData/hostingStatus/count';
+            const START_SIGNAL_PATH = 'appData/hostingStatus/signal';
+
             let state = {
                 rankCount: 7, maxRank: 12, minRank: 1,
-                lastSnapshotTitle: null, // v2.7.5 新增：記錄最後載入的快照名稱
+                lastSnapshotTitle: null,
                 events: [],
                 refereeConfig: { names: [], assignments: {}, customRoles: [] }, 
-                qualificationConfig: { autoCount: 1, timeCount: 4, targetEvents: [] }, // v2.7.0 擇優設定
-                qualificationResults: {}, // v2.7.0 計算結果快取
-               editingTime: { eventIndex: null, rank: null },
-                assigningPlayer: { eventIndex: null, rank: null }, // v2.5.0 新增：正在分配選手的狀態
+                qualificationConfig: { autoCount: 1, timeCount: 4, targetEvents: [] },
+                qualificationResults: {},
+                editingTime: { eventIndex: null, rank: null },
+                assigningPlayer: { eventIndex: null, rank: null },
                 confirmCallback: null, confirmInterval: null, 
                 deleteTimeConfirmation: false, deleteTimeTimeout: null,
                 passwordCallback: null,
@@ -859,15 +882,18 @@
                 editingEventIndex: null,
                 stopwatch: {
                     isRunning: false,
+                    isHosting: false, // v2.8.0 新增：是否處於託管狀態
                     startTime: 0,
-                    elapsedTime: 0, // 單次累計
+                    elapsedTime: 0,
                     intervalId: null,
+                    isExpanded: false,
                     isExpanded: false,
                     isContinuous: false, 
                     laps: [], 
                     settings: {
                         sound: false,
-                        vibration: false
+                        vibration: false,
+                        hostingMode: false // v2.8.2 新增
                     }
                 }
             };
@@ -973,13 +999,17 @@
             const swBtnReset = document.getElementById('sw-btn-reset');
             const swBtnLap = document.getElementById('sw-btn-lap'); 
             const swBtnStop = document.getElementById('sw-btn-stop'); 
-            const swLapsList = document.getElementById('sw-laps-list'); 
+            const swBtnHost = document.getElementById('sw-btn-host'); // v2.8.0 新增
+            const swHostCountDisplay = document.getElementById('sw-host-count-display'); // v2.8.0 新增
+            const swHostNum = document.getElementById('sw-host-num'); // v2.8.0 新增
+            const swLapsList = document.getElementById('sw-laps-list');
             
             const swSettingsToggle = document.getElementById('sw-settings-toggle');
             const swSettingsMenu = document.getElementById('sw-settings-menu');
             const toggleSound = document.getElementById('toggle-sound');
             const toggleVibration = document.getElementById('toggle-vibration');
-            const toggleContinuous = document.getElementById('toggle-continuous'); 
+            const toggleHostingMode = document.getElementById('toggle-hosting-mode'); // v2.8.2 新增
+            const toggleContinuous = document.getElementById('toggle-continuous');
 
             // --- Helpers ---
             function showToast(message, type = 'success') {
@@ -1047,15 +1077,25 @@
             }
             function handlePasswordSubmit(e) {
                 e.preventDefault();
-                if (passwordInput.value === ADMIN_PASSWORD) {
+               if (passwordInput.value === ADMIN_PASSWORD) {
                     state.isAdminAuthenticated = true;
                     adminModeBadge.classList.remove('hidden');
+                    
+                    // v2.8.2: 管理員模式強制開啟託管功能
+                    state.stopwatch.settings.hostingMode = true;
+                    toggleHostingMode.checked = true;
+                    showToast('📡 已強制開啟託管功能');
+
                     if (state.passwordCallback) state.passwordCallback();
                     closePasswordModal();
                     renderTable(); // Re-render to show OK buttons
 					// v2.7.0 顯示擇優按鈕
                     document.getElementById('btn-qualification').classList.remove('hidden');
                     document.getElementById('qualify-divider').classList.remove('hidden');
+                    // v2.8.0 顯示託管人數與更新按鈕
+                    document.getElementById('sw-host-count-display').classList.remove('hidden');
+                    updateStopwatchUIState();
+                    
                     showToast('🔒 已進入管理者模式', 'success');
                 } else {
                     passwordError.classList.remove('hidden');
@@ -1229,26 +1269,79 @@
                 updateStopwatchUIState();
             }
 
-            function updateStopwatchUIState() {
-                swBtnStart.classList.add('hidden');
-                swBtnPause.classList.add('hidden');
-                swBtnLap.classList.add('hidden');
-                swBtnStop.classList.add('hidden');
+           function updateStopwatchUIState() {
+                // 1. 初始化：全部隱藏
+                const buttons = [swBtnStart, swBtnPause, swBtnLap, swBtnStop, swBtnHost];
+                buttons.forEach(btn => btn.classList.add('hidden'));
+                
+                // 重置託管按鈕樣式
+                swBtnHost.classList.remove('sw-hosting-pulse', 'bg-purple-600');
+                
+                // 重置 Reset 按鈕
+                swBtnReset.disabled = false;
+                swBtnReset.classList.remove('btn-disabled');
 
-                if (state.stopwatch.isContinuous) {
-                    swLapsList.classList.remove('hidden');
-                    if (state.stopwatch.isRunning) {
+                // 2. 判斷是否正在跑
+                if (state.stopwatch.isRunning) {
+                    // === 計時中 ===
+                    if (state.stopwatch.isContinuous) {
                         swBtnLap.classList.remove('hidden');
                         swBtnStop.classList.remove('hidden');
                     } else {
-                        swBtnStart.classList.remove('hidden');
-                    }
-                } else {
-                    swLapsList.classList.add('hidden');
-                    if (state.stopwatch.isRunning) {
                         swBtnPause.classList.remove('hidden');
+                    }
+                    swLapsList.classList.toggle('hidden', !state.stopwatch.isContinuous);
+                    
+                    // 跑動中禁止歸零
+                    swBtnReset.disabled = true;
+                    swBtnReset.classList.add('btn-disabled');
+                    
+                } else {
+                    // === 停止或暫停狀態 ===
+                    swLapsList.classList.toggle('hidden', !state.stopwatch.isContinuous);
+
+                    if (state.stopwatch.elapsedTime === 0) {
+                        // === A. 歸零狀態 (這是唯一可以託管的時候) ===
+                        
+                       if (state.stopwatch.isHosting) {
+                            // [情境 1] 託管中：顯示閃爍的取消按鈕，隱藏開始按鈕
+                            swBtnHost.classList.remove('hidden', 'sw-btn-host');
+                            swBtnHost.classList.add('sw-hosting-pulse', 'bg-purple-600');
+                            swBtnHost.innerHTML = '❌';
+                            swBtnHost.title = "取消託管";
+                            // 這裡不顯示 swBtnStart
+                        } else {
+                            // [情境 2] 正常待命
+                            
+                            // v2.8.2 修改：依據設定決定是否顯示託管按鈕
+                            if (state.stopwatch.settings.hostingMode) {
+                                swBtnHost.classList.remove('hidden', 'sw-hosting-pulse', 'bg-purple-600');
+                                swBtnHost.classList.add('sw-btn-host');
+                            } else {
+                                swBtnHost.classList.add('hidden');
+                            }
+                            
+                            swBtnHost.innerHTML = '📡';
+                            swBtnHost.title = "碼表託管";
+                            
+                            swBtnStart.classList.remove('hidden');
+                            // 管理員發令槍樣式
+                            if (state.isAdminAuthenticated) {
+                                swBtnStart.classList.add('bg-red-600', 'hover:bg-red-700', 'border-2', 'border-yellow-300');
+                                swBtnStart.innerHTML = '🔫';
+                                swBtnStart.title = "啟動全員碼表";
+                            } else {
+                                swBtnStart.classList.remove('bg-red-600', 'hover:bg-red-700', 'border-2', 'border-yellow-300');
+                                swBtnStart.innerHTML = '▶️';
+                                swBtnStart.title = "開始";
+                            }
+                        }
                     } else {
+                        // === B. 暫停狀態 (有時間) ===
                         swBtnStart.classList.remove('hidden');
+                        swBtnStart.innerHTML = '▶️';
+                        swBtnStart.title = "繼續";
+                        // 暫停時不顯示託管按鈕
                     }
                 }
             }
@@ -1302,11 +1395,14 @@
             }
 
             function resetStopwatch(force = false) {
-                const doReset = () => {
+               const doReset = () => {
                     if (state.stopwatch.isRunning) {
                         cancelAnimationFrame(state.stopwatch.intervalId);
                         state.stopwatch.isRunning = false;
                     }
+                    // v2.8.0: 重置時如果正在託管，自動取消
+                    if (state.stopwatch.isHosting) toggleHosting();
+
                     state.stopwatch.elapsedTime = 0;
                     state.stopwatch.startTime = 0;
                     state.stopwatch.laps = [];
@@ -1343,7 +1439,114 @@
                     }, 300); // 等待縮小動畫完成後再重置，視覺較平滑
                 }
             }
+// --- v2.8.0 Hosting & Remote Start Logic ---
+            function toggleHosting() {
+                // 1. 基本檢查
+                if (state.stopwatch.isRunning || state.stopwatch.elapsedTime > 0) { 
+                    showToast('請先歸零碼表', 'error'); 
+                    return; 
+                }
 
+                // 2. 切換狀態
+                const isNowHosting = !state.stopwatch.isHosting;
+                state.stopwatch.isHosting = isNowHosting;
+
+                // 3. ★ 優先更新 UI (避免因為網路問題導致按鈕沒反應)
+                updateStopwatchUIState();
+
+                if (isNowHosting) {
+                    showToast('📡 已進入託管模式，等待發令...');
+                } else {
+                    showToast('已取消託管');
+                }
+
+                // 4. 嘗試連線 Firebase (加強防呆，防止 db 未定義時報錯)
+                if (isFirebaseEnabled && typeof db !== 'undefined') {
+                    try {
+                        const countRef = db.ref(HOST_COUNT_PATH);
+                        countRef.transaction((currentCount) => {
+                            return (currentCount || 0) + (isNowHosting ? 1 : -1);
+                        });
+
+                        if (isNowHosting) {
+                            countRef.onDisconnect().transaction((count) => (count || 0) - 1);
+                        } else {
+                            countRef.onDisconnect().cancel();
+                        }
+                    } catch (e) {
+                        console.warn("Firebase 連線異常，僅執行本機 UI 切換", e);
+                    }
+                }
+            }
+
+            function handleStartCommand() {
+                // 如果是管理員，且碼表歸零，則觸發廣播啟動
+                if (state.isAdminAuthenticated) {
+                    if (state.stopwatch.isRunning || state.stopwatch.elapsedTime > 0) {
+                        showToast('管理員請先歸零碼表才能發令', 'error');
+                        return;
+                    }
+                    
+                    // 1. 廣播啟動訊號
+                    if (isFirebaseEnabled) {
+                        db.ref(START_SIGNAL_PATH).set({
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            triggerId: Date.now() // 唯一識別碼
+                        });
+                        
+                        // 2. 歸零託管計數
+                        db.ref(HOST_COUNT_PATH).set(0);
+                    }
+                    
+                    // 3. 啟動自己的碼表 (透過監聽訊號啟動，或直接啟動)
+                    // 這裡為了視覺零延遲，管理員直接啟動，但也監聽訊號修正時間
+                    startStopwatch(); 
+                    showToast('🔫 砰！已啟動所有託管碼表');
+                } else {
+                    // 一般使用者：按下開始就是開始自己
+                    startStopwatch();
+                }
+            }
+
+            function listenForRemoteStart() {
+                if (!isFirebaseEnabled) return;
+                
+                // 監聽發令訊號
+                db.ref(START_SIGNAL_PATH).on('value', (snapshot) => {
+                    const signal = snapshot.val();
+                    if (!signal || !signal.timestamp) return;
+
+                    // 檢查訊號是否新鮮 (例如 5 秒內的訊號才有效，避免載入舊訊號誤啟動)
+                    const now = Date.now();
+                    const delay = now - signal.timestamp; // 理論上是正數，但考慮時鐘差異
+
+                    // 如果處於託管狀態，且收到新鮮訊號 -> 啟動
+                    if (state.stopwatch.isHosting && Math.abs(delay) < 5000) {
+                        state.stopwatch.isHosting = false; // 解除託管
+                        // 取消 onDisconnect 事件，因為已經正式開始
+                        db.ref(HOST_COUNT_PATH).onDisconnect().cancel();
+                        
+                        startStopwatch();
+                        showToast('🚀 收到發令，計時開始！');
+                        
+                        // v2.8.0: 可選 - 若要極致精準，可使用 signal.timestamp 修正 startTime
+                        // state.stopwatch.startTime = signal.timestamp; // 需考慮 Server 與 Client 時間差，暫不啟用以免混亂
+                    }
+                });
+
+                // 監聽託管人數 (給管理員看)
+                db.ref(HOST_COUNT_PATH).on('value', (snapshot) => {
+                    const count = snapshot.val() || 0;
+                    swHostNum.textContent = count < 0 ? 0 : count; // 防呆
+                    
+                    // 只有管理員模式才顯示人數
+                    if (state.isAdminAuthenticated) {
+                        swHostCountDisplay.classList.remove('hidden');
+                    } else {
+                        swHostCountDisplay.classList.add('hidden');
+                    }
+                });
+            }
             // --- v2.2.0 Logic: Single Import from Split List ---
             function showLapSelectionMenu() {
                 lapSelectionList.innerHTML = '';
@@ -2106,6 +2309,10 @@
 				// v2.7.0 隱藏擇優按鈕
                 document.getElementById('btn-qualification').classList.add('hidden');
                 document.getElementById('qualify-divider').classList.add('hidden');
+                // v2.8.0 隱藏託管人數與更新按鈕
+                document.getElementById('sw-host-count-display').classList.add('hidden');
+                updateStopwatchUIState();
+
                 showToast('已退出管理者模式', 'success');
             }
             
@@ -2584,8 +2791,9 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             btnClearPlayer.addEventListener('click', clearAssignedPlayer);
             playerSelectModal.addEventListener('click', (e) => e.target === playerSelectModal && closePlayerSelectModal());
             // --- Stopwatch Event Listeners ---
-            swToggleBtn.addEventListener('click', toggleStopwatchPanel);
-            swBtnStart.addEventListener('click', startStopwatch);
+           swToggleBtn.addEventListener('click', toggleStopwatchPanel);
+            swBtnStart.addEventListener('click', handleStartCommand); // v2.8.0 改為處理發令邏輯
+            swBtnHost.addEventListener('click', toggleHosting);     // v2.8.0 託管按鈕
             swBtnPause.addEventListener('click', pauseStopwatch);
             swBtnReset.addEventListener('click', () => resetStopwatch(false)); // Manual click triggers confirm
             swBtnLap.addEventListener('click', recordLap); 
@@ -2594,12 +2802,17 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             btnImportStopwatch.addEventListener('click', importStopwatchTime);
             btnImportSplits.addEventListener('click', importSplitTimes); 
             
-            swSettingsToggle.addEventListener('click', () => {
+           swSettingsToggle.addEventListener('click', () => {
                 swSettingsMenu.classList.toggle('hidden');
             });
             toggleSound.addEventListener('change', (e) => state.stopwatch.settings.sound = e.target.checked);
             toggleVibration.addEventListener('change', (e) => state.stopwatch.settings.vibration = e.target.checked);
-            toggleContinuous.addEventListener('change', toggleContinuousMode); 
+            // v2.8.2 新增託管模式監聽
+            toggleHostingMode.addEventListener('change', (e) => {
+                state.stopwatch.settings.hostingMode = e.target.checked;
+                updateStopwatchUIState(); // 即時更新介面
+            });
+            toggleContinuous.addEventListener('change', toggleContinuousMode);
 
             // --- Init ---
             // --- v2.7.0 Logic: Qualification (計時擇優) ---
@@ -2826,7 +3039,8 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
 
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
-                showToast('v2.7.7 名次匯出版載入完成', 'success');
+                listenForRemoteStart(); // v2.8.0 啟動託管監聽
+                showToast('v2.8.0 線上託管計時版載入完成', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
