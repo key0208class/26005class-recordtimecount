@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.9.3</title>
+    <title>蓮小終點計時組 v2.9.6</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -251,17 +251,22 @@
         .sw-settings-menu {
             position: absolute; top: 40px; left: 10px;
             background-color: #374151; border: 1px solid #4b5563;
-            border-radius: 8px; padding: 8px;
-            display: flex; flex-direction: column; gap: 8px;
+            border-radius: 8px; 
+            /* 修正：將 padding 調整回統一的 12px，新的標頭會佔用空間 */
+            padding: 12px; 
+            display: flex; flex-direction: column; gap: 10px;
             z-index: 60; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            width: 150px;
+            width: 160px; /* 稍微加寬 */
         }
         .sw-settings-menu.hidden { display: none; }
         
         .sw-setting-item {
             display: flex; align-items: center; justify-content: space-between;
             color: #d1d5db; font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1); /* 增加分隔線 */
+            padding-bottom: 6px;
         }
+        .sw-setting-item:last-child { border-bottom: none; }
         /* Toggle Switch */
         .toggle-checkbox { display: none; }
         .toggle-label {
@@ -339,9 +344,41 @@
         .sw-hosting-pulse { animation: host-pulse 1.5s infinite; background-color: #7c3aed; box-shadow: 0 0 15px #8b5cf6; }
         @keyframes host-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } 100% { transform: scale(1); opacity: 1; } }
         /* === v2.9.0 身份識別與儀表板樣式 === */
-        .sw-settings-close { position: absolute; top: 8px; right: 8px; color: #9ca3af; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px; transition: color 0.2s; }
-        .sw-settings-close:hover { color: white; }
+        /* 修改：關閉按鈕樣式優化，加大點擊範圍 v2.9.6 */
+        .sw-settings-close { 
+            color: #ef4444; /* 紅色 X */
+            background-color: rgba(255, 255, 255, 0.1); /* 微亮背景 */
+            border-radius: 8px; /* 較圓的角 */
+            width: 32px; height: 32px; /* 加大尺寸 */
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 16px; font-weight: bold;
+            line-height: 1; 
+            transition: all 0.2s; 
+            border: 1px solid #4b5563;
+            margin-left: auto; /* 靠右對齊 */
+        }
+        .sw-settings-close:hover { color: white; background-color: #ef4444; border-color: #ef4444; transform: scale(1.1); }
         
+        /* v2.9.6 新增：主畫面身份顯示樣式 */
+        .sw-identity-tag {
+            font-size: 0.75rem; 
+            font-weight: 700; 
+            color: #4ade80; /* 綠色 */
+            background-color: rgba(74, 222, 128, 0.15); 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            cursor: pointer;
+            transition: all 0.2s;
+            max-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+        }
+        .sw-identity-tag:hover { background-color: rgba(74, 222, 128, 0.25); }
+        .sw-identity-tag.empty { color: #9ca3af; border-color: #4b5563; background-color: transparent; }
+
         .referee-badge { cursor: pointer; transition: all 0.2s; position: relative; }
         .referee-badge:hover { transform: scale(1.05); filter: brightness(1.1); }
         .referee-badge.signed-in::after { content: '✔'; position: absolute; top: -5px; right: -5px; background: #10b981; color: white; border-radius: 50%; width: 14px; height: 14px; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
@@ -397,21 +434,26 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
                     </div>
                 </div>
-                <div class="flex flex-col items-end">
+                <div class="flex flex-col items-end gap-1">
+                    <div id="sw-host-count-display" class="sw-host-info hidden" title="點擊展開/收合詳細名單" onclick="toggleMiniDashboard()">
+                        <span class="animate-pulse">📡</span> <span id="sw-host-num">0</span>人
+                    </div>
                     <div class="flex items-center gap-2">
-                        <div id="sw-host-count-display" class="sw-host-info hidden" title="點擊展開/收合詳細名單" onclick="toggleMiniDashboard()">
-                            <span class="animate-pulse">📡</span> <span id="sw-host-num">0</span>人
-                        </div>
-                        <div class="flex flex-col items-end">
-                            <span class="text-xs font-bold text-gray-400 tracking-wider uppercase">Pro Stopwatch</span>
-                            <span class="text-[10px] text-gray-500">v2.9.3</span>
+                        <span class="text-[10px] text-gray-500">v2.9.6</span>
+                        <div id="current-identity-display" class="sw-identity-tag empty" title="點擊重置身份">
+                            未簽到
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div id="sw-settings-menu" class="sw-settings-menu hidden">
-                <button id="sw-settings-close" class="sw-settings-close" title="關閉設定">✖</button>
+           <div id="sw-settings-menu" class="sw-settings-menu hidden">
+                
+                <div class="flex justify-between items-center w-full pb-2 border-b border-gray-600 mb-2">
+                    <span class="text-sm font-bold text-gray-200">設定</span>
+                    <button id="sw-settings-close" class="sw-settings-close" title="關閉設定">✖</button>
+                </div>
+
                 <div class="sw-setting-item">
                     <span>🔊 音效</span>
                     <input type="checkbox" id="toggle-sound" class="toggle-checkbox">
@@ -431,15 +473,7 @@
                     <span>🔄 連續計時</span>
                     <input type="checkbox" id="toggle-continuous" class="toggle-checkbox">
                     <label for="toggle-continuous" class="toggle-label"></label>
-                </div>
-                 <div class="sw-setting-item border-t border-gray-600 pt-2 mt-1">
-                    <div class="flex flex-col w-full">
-                        <span class="text-xs text-gray-400 mb-1">目前身份：</span>
-                        <div class="flex justify-between items-center">
-                            <span id="current-identity-display" class="text-xs font-bold text-green-400 truncate max-w-[80px]">未簽到</span>
-                            <button id="btn-reset-identity" class="text-[10px] bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">重置</button>
-                        </div>
-                    </div>
+                
                 </div>
             </div>
 
@@ -468,7 +502,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.9.3</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.9.6</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -1168,14 +1202,19 @@
                 showToast('已重置身份');
             }
 
+            // v2.9.6 修改：更新位於主面板的身份顯示
             function updateIdentityDisplay() {
                 const displayEl = document.getElementById('current-identity-display');
+                if (!displayEl) return;
+                
                 if (state.identity.name) {
                     displayEl.textContent = state.identity.name;
-                    displayEl.className = "text-xs font-bold text-green-400 truncate max-w-[80px]";
+                    displayEl.classList.remove('empty');
+                    displayEl.title = `目前身份：${state.identity.role} (點擊可重置)`;
                 } else {
                     displayEl.textContent = "未簽到";
-                    displayEl.className = "text-xs font-bold text-gray-500 truncate max-w-[80px]";
+                    displayEl.classList.add('empty');
+                    displayEl.title = "尚未簽到 (請在表格上方點擊您的名字)";
                 }
             }
             // --- Helpers ---
@@ -1480,7 +1519,7 @@
                         } else {
                             // [情境 2] 正常待命
                             
-                            // v2.8.2 修改：依據設定決定是否顯示託管按鈕
+                            // v2.9.6 修正：確保重新整理後，若設定開啟，按鈕會出現
                             if (state.stopwatch.settings.hostingMode) {
                                 swBtnHost.classList.remove('hidden', 'sw-hosting-pulse', 'bg-purple-600');
                                 swBtnHost.classList.add('sw-btn-host');
@@ -1585,17 +1624,25 @@
                 }
             }
 
-            function toggleStopwatchPanel() {
+           function toggleStopwatchPanel() {
                 state.stopwatch.isExpanded = !state.stopwatch.isExpanded;
                 if (state.stopwatch.isExpanded) {
+                    // === 展開狀態 ===
                     swPanel.classList.remove('minimized');
                     swToggleBtn.classList.add('active');
                     swToggleBtn.innerHTML = '✖';
                 } else {
+                    // === 縮小/隱藏狀態 ===
                     swPanel.classList.add('minimized');
                     swToggleBtn.classList.remove('active');
                     swToggleBtn.innerHTML = '⏱️';
+                    
+                    // 1. 隱藏設定選單
                     swSettingsMenu.classList.add('hidden');
+                    
+                    // 2. 修正：隱藏迷你儀表板 (託管狀態列)
+                    const miniDash = document.getElementById('sw-mini-dashboard');
+                    if (miniDash) miniDash.classList.add('hidden');
                     
                     // v2.7.4: 關閉時重置位置回右下角
                     setTimeout(() => {
@@ -3169,10 +3216,19 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                 swSettingsMenu.classList.add('hidden');
             });
 
-            // v2.9.0 新增：重置身份按鈕
-            document.getElementById('btn-reset-identity').addEventListener('click', () => {
-                if(confirm('確定要重置身份嗎？')) resetIdentity();
-            });
+           // v2.9.6 修改：點擊右上角身份標籤可重置
+            const identityDisplayBtn = document.getElementById('current-identity-display');
+            if(identityDisplayBtn) {
+                identityDisplayBtn.addEventListener('click', () => {
+                    if (state.identity.name) {
+                        if(confirm(`目前身份：${state.identity.name}\n角色：${state.identity.role}\n\n確定要重置(登出)身份嗎？`)) {
+                            resetIdentity();
+                        }
+                    } else {
+                        showToast('請在下方表格中點擊您的名字進行簽到', 'error');
+                    }
+                });
+            }
 
             // v2.9.0 修改：統一儲存設定到 LocalStorage (讓重整後設定不跑掉)
             const saveSettingsToLocal = () => {
@@ -3429,7 +3485,7 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
                 listenForRemoteStart(); // v2.8.0 啟動託管監聽
-                showToast('v2.9.3 線上託管計時版載入完成', 'success');
+                showToast('v2.9.5 線上託管計時版載入完成', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
