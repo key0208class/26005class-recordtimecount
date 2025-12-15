@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.8.2</title>
+    <title>蓮小終點計時組 v2.9.3</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -174,7 +174,32 @@
         
         .row-complete-highlight { background-color: #dcfce7 !important; }
         .row-complete-highlight:hover { background-color: #bbf7d0 !important; }
-
+/* === v2.9.2 迷你儀表板樣式 === */
+        #sw-mini-dashboard {
+            background-color: rgba(31, 41, 55, 0.95);
+            border: 1px solid #4b5563;
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            padding: 8px 12px;
+            width: 100%;
+            max-height: 150px; /* 限制高度，太多人時可捲動 */
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 13px;
+            color: #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        #sw-mini-dashboard.hidden { display: none; }
+        .mini-status-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #374151; padding-bottom: 2px; }
+        .mini-status-row:last-child { border-bottom: none; }
+        .mini-icon { margin-right: 6px; font-size: 12px; }
+        .mini-name { font-weight: bold; color: #fff; margin-right: auto; margin-left: 4px; }
+        .mini-role { color: #9ca3af; font-size: 11px; }
+        .mini-state { font-size: 11px; padding: 1px 4px; border-radius: 4px; }
+        .state-ready { color: #4ade80; background: rgba(74, 222, 128, 0.1); } /* 綠色 已託管 */
+        .state-offline { color: #9ca3af; } /* 灰色 未上線 */
         /* === 懸浮碼表樣式 v2.1 === */
         #stopwatch-widget {
             position: fixed; bottom: 20px; right: 20px; z-index: 50; 
@@ -313,7 +338,27 @@
         .sw-btn-host:hover { background-color: #7c3aed; }
         .sw-hosting-pulse { animation: host-pulse 1.5s infinite; background-color: #7c3aed; box-shadow: 0 0 15px #8b5cf6; }
         @keyframes host-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.9; } 100% { transform: scale(1); opacity: 1; } }
+        /* === v2.9.0 身份識別與儀表板樣式 === */
+        .sw-settings-close { position: absolute; top: 8px; right: 8px; color: #9ca3af; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px; transition: color 0.2s; }
+        .sw-settings-close:hover { color: white; }
         
+        .referee-badge { cursor: pointer; transition: all 0.2s; position: relative; }
+        .referee-badge:hover { transform: scale(1.05); filter: brightness(1.1); }
+        .referee-badge.signed-in::after { content: '✔'; position: absolute; top: -5px; right: -5px; background: #10b981; color: white; border-radius: 50%; width: 14px; height: 14px; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        
+        .host-dashboard-modal { width: 90%; max-width: 600px; }
+        .host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
+        .host-card { background: #f3f4f6; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.3s; opacity: 0.6; filter: grayscale(1); }
+        .host-card.active { background: #dcfce7; border-color: #86efac; opacity: 1; filter: grayscale(0); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .host-card.unknown { background: #f3e8ff; border-color: #d8b4fe; opacity: 1; filter: grayscale(0); }
+        .host-status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: #9ca3af; }
+        .host-card.active .host-status-dot { background-color: #22c55e; box-shadow: 0 0 6px #22c55e; }
+        .host-card-role { font-size: 0.75rem; color: #6b7280; font-weight: bold; }
+        .host-card-name { font-size: 0.9rem; font-weight: 600; color: #1f2937; text-align: center; }
+        
+        /* 讓儀表板的按鈕看起來更像按鈕 */
+        #sw-host-count-display { cursor: pointer; transition: background-color 0.2s; }
+        #sw-host-count-display:hover { background-color: rgba(139, 92, 246, 0.2); }
         .sw-host-info { font-size: 0.75rem; color: #a78bfa; margin-right: 8px; display: flex; align-items: center; gap: 4px; background: rgba(139, 92, 246, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(139, 92, 246, 0.3); }
         /* 列印設定 */
         @media print {
@@ -342,6 +387,8 @@
     <div id="toast-container"></div>
 
     <div id="stopwatch-widget" class="no-print">
+        <div id="sw-mini-dashboard" class="hidden"></div>
+
         <div id="sw-panel" class="sw-main-panel minimized">
             <div class="sw-header">
                 <div class="flex items-center gap-2">
@@ -352,18 +399,19 @@
                 </div>
                 <div class="flex flex-col items-end">
                     <div class="flex items-center gap-2">
-                        <div id="sw-host-count-display" class="sw-host-info hidden" title="目前託管中的裁判人數">
+                        <div id="sw-host-count-display" class="sw-host-info hidden" title="點擊展開/收合詳細名單" onclick="toggleMiniDashboard()">
                             <span class="animate-pulse">📡</span> <span id="sw-host-num">0</span>人
                         </div>
                         <div class="flex flex-col items-end">
                             <span class="text-xs font-bold text-gray-400 tracking-wider uppercase">Pro Stopwatch</span>
-                            <span class="text-[10px] text-gray-500">v2.8.2</span>
+                            <span class="text-[10px] text-gray-500">v2.9.3</span>
                         </div>
                     </div>
                 </div>
             </div>
             
             <div id="sw-settings-menu" class="sw-settings-menu hidden">
+                <button id="sw-settings-close" class="sw-settings-close" title="關閉設定">✖</button>
                 <div class="sw-setting-item">
                     <span>🔊 音效</span>
                     <input type="checkbox" id="toggle-sound" class="toggle-checkbox">
@@ -383,6 +431,15 @@
                     <span>🔄 連續計時</span>
                     <input type="checkbox" id="toggle-continuous" class="toggle-checkbox">
                     <label for="toggle-continuous" class="toggle-label"></label>
+                </div>
+                 <div class="sw-setting-item border-t border-gray-600 pt-2 mt-1">
+                    <div class="flex flex-col w-full">
+                        <span class="text-xs text-gray-400 mb-1">目前身份：</span>
+                        <div class="flex justify-between items-center">
+                            <span id="current-identity-display" class="text-xs font-bold text-green-400 truncate max-w-[80px]">未簽到</span>
+                            <button id="btn-reset-identity" class="text-[10px] bg-gray-600 px-2 py-1 rounded hover:bg-gray-500">重置</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -411,7 +468,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.8.2</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.9.3</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -776,6 +833,25 @@
             </div>
         </div>
     </div>
+	<div id="host-dashboard-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 no-print">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-6 transform host-dashboard-modal">
+            <header class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">📡 託管監控儀表板</h2>
+                <button onclick="closeHostDashboard()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            <div class="bg-blue-50 border border-blue-100 rounded p-3 mb-4 text-sm text-blue-800">
+                <p>🟢 <strong>綠燈：</strong>表示該裁判已開啟託管，可接收發令。</p>
+                <p>⚪ <strong>灰燈：</strong>表示該名次裁判尚未開啟託管。</p>
+            </div>
+            <div id="host-dashboard-grid" class="host-grid">
+                </div>
+             <div class="mt-6 flex justify-end">
+                <button onclick="closeHostDashboard()" class="bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium py-2 px-5 rounded-lg transition duration-200">關閉</button>
+            </div>
+        </div>
+    </div>
 	<div id="qualify-edit-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[90] p-4 no-print">
         <div class="modal-content bg-white rounded-xl shadow-2xl p-6 transform w-full max-w-xs text-center">
             <h3 class="text-lg font-bold text-gray-800 mb-4">手動調整晉級狀態</h3>
@@ -835,7 +911,7 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            
+            // 修正：移除此處過早執行的 initLocalStorageState(); 
             let db; 
             const APP_DATA_PATH = 'appData'; 
             const SNAPSHOTS_PATH = 'cloudSnapshots'; 
@@ -862,8 +938,9 @@
             }
 
            // --- State Management ---
-            // v2.8.0 新增 Firebase 路徑常數
-            const HOST_COUNT_PATH = 'appData/hostingStatus/count';
+            // v2.9.0 狀態管理升級
+            const HOST_CLIENTS_PATH = 'appData/hostingStatus/clients'; 
+            const HOST_COUNT_PATH = 'appData/hostingStatus/count'; // v2.9.2 補上缺失的變數
             const START_SIGNAL_PATH = 'appData/hostingStatus/signal';
 
             let state = {
@@ -880,23 +957,72 @@
                 passwordCallback: null,
                 isAdminAuthenticated: false,
                 editingEventIndex: null,
+                // v2.9.0 新增身份與裝置資訊
+                deviceId: null, 
+                identity: { name: null, role: null, rank: null }, 
                 stopwatch: {
                     isRunning: false,
-                    isHosting: false, // v2.8.0 新增：是否處於託管狀態
+                    isHosting: false, 
                     startTime: 0,
                     elapsedTime: 0,
                     intervalId: null,
-                    isExpanded: false,
                     isExpanded: false,
                     isContinuous: false, 
                     laps: [], 
                     settings: {
                         sound: false,
                         vibration: false,
-                        hostingMode: false // v2.8.2 新增
+                        hostingMode: false 
                     }
                 }
             };
+            
+            // v2.9.0 UUID 產生器與 LocalStorage 初始化
+            function generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+
+            function initLocalStorageState() {
+                // 1. 取得或產生 Device ID
+                let storedDeviceId = localStorage.getItem('sw_device_id');
+                if (!storedDeviceId) {
+                    storedDeviceId = generateUUID();
+                    localStorage.setItem('sw_device_id', storedDeviceId);
+                }
+                state.deviceId = storedDeviceId;
+
+                // 2. 恢復身份 (Identity)
+                const storedIdentity = localStorage.getItem('sw_identity');
+                if (storedIdentity) {
+                    try {
+                        state.identity = JSON.parse(storedIdentity);
+                        updateIdentityDisplay();
+                    } catch (e) { console.error('Identity parse error', e); }
+                }
+
+                // 3. 恢復設定 (Settings)
+                const storedSettings = localStorage.getItem('sw_settings');
+                if (storedSettings) {
+                    try {
+                        const saved = JSON.parse(storedSettings);
+                        state.stopwatch.settings = { ...state.stopwatch.settings, ...saved };
+                        // 同步 checkbox
+                        document.getElementById('toggle-sound').checked = state.stopwatch.settings.sound;
+                        document.getElementById('toggle-vibration').checked = state.stopwatch.settings.vibration;
+                        document.getElementById('toggle-hosting-mode').checked = state.stopwatch.settings.hostingMode;
+                        // 若設定為託管模式，且有身份，則自動嘗試重連託管
+                        if(state.stopwatch.settings.hostingMode && localStorage.getItem('sw_is_hosting') === 'true') {
+                            // 稍後在 DOMContentLoaded 底部執行 autoReconnect
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            // v2.9.1 修正：在 state 宣告後才執行初始化
+            initLocalStorageState();
 
             // --- DOM Elements ---
             const rankCountDisplay = document.getElementById('rank-count-display');
@@ -1010,7 +1136,48 @@
             const toggleVibration = document.getElementById('toggle-vibration');
             const toggleHostingMode = document.getElementById('toggle-hosting-mode'); // v2.8.2 新增
             const toggleContinuous = document.getElementById('toggle-continuous');
+// v2.9.2 修改：支援自訂 ID 與角色名稱傳入
+            window.handleIdentityCheckin = function(id, name, roleName) {
+                // 檢查是否已簽到為此人
+                if (state.identity.id == id && state.identity.name === name) {
+                    if (confirm(`您目前已簽到為：${name} (${roleName})\n確定要登出身份嗎？`)) {
+                        resetIdentity();
+                    }
+                    return;
+                }
 
+                if (confirm(`確定要將此裝置設定為：\n\n👮 ${name} (${roleName})\n\n設定後，託管時管理員將能識別您的身份。`)) {
+                    state.identity = { id: id, name: name, role: roleName, rank: parseInt(id) || 999 }; // 若 ID 非數字則 Rank 設為 999
+                    localStorage.setItem('sw_identity', JSON.stringify(state.identity));
+                    updateIdentityDisplay();
+                    renderTable(); 
+                    
+                    if (state.stopwatch.isHosting) {
+                        updateHostingStatusToFirebase(true);
+                    }
+                    showToast(`✅ 簽到成功：${name}`);
+                }
+            };
+
+           function resetIdentity() {
+                state.identity = { id: null, name: null, role: null, rank: null };
+                localStorage.removeItem('sw_identity');
+                updateIdentityDisplay();
+                renderTable(); 
+                if (state.stopwatch.isHosting) updateHostingStatusToFirebase(true); 
+                showToast('已重置身份');
+            }
+
+            function updateIdentityDisplay() {
+                const displayEl = document.getElementById('current-identity-display');
+                if (state.identity.name) {
+                    displayEl.textContent = state.identity.name;
+                    displayEl.className = "text-xs font-bold text-green-400 truncate max-w-[80px]";
+                } else {
+                    displayEl.textContent = "未簽到";
+                    displayEl.className = "text-xs font-bold text-gray-500 truncate max-w-[80px]";
+                }
+            }
             // --- Helpers ---
             function showToast(message, type = 'success') {
                 const toast = document.createElement('div');
@@ -1439,43 +1606,65 @@
                     }, 300); // 等待縮小動畫完成後再重置，視覺較平滑
                 }
             }
-// --- v2.8.0 Hosting & Remote Start Logic ---
+// v2.9.0 重寫：託管狀態切換
             function toggleHosting() {
-                // 1. 基本檢查
                 if (state.stopwatch.isRunning || state.stopwatch.elapsedTime > 0) { 
                     showToast('請先歸零碼表', 'error'); 
                     return; 
                 }
 
-                // 2. 切換狀態
                 const isNowHosting = !state.stopwatch.isHosting;
                 state.stopwatch.isHosting = isNowHosting;
+                
+                // 記憶託管狀態
+                localStorage.setItem('sw_is_hosting', isNowHosting);
 
-                // 3. ★ 優先更新 UI (避免因為網路問題導致按鈕沒反應)
                 updateStopwatchUIState();
 
                 if (isNowHosting) {
-                    showToast('📡 已進入託管模式，等待發令...');
+                    const roleText = state.identity.role ? state.identity.role : "未簽到裁判";
+                    showToast(`📡 已連線：${roleText} (等待發令)`); // Point 5: 手機回饋
                 } else {
                     showToast('已取消託管');
                 }
 
-                // 4. 嘗試連線 Firebase (加強防呆，防止 db 未定義時報錯)
-                if (isFirebaseEnabled && typeof db !== 'undefined') {
-                    try {
-                        const countRef = db.ref(HOST_COUNT_PATH);
-                        countRef.transaction((currentCount) => {
-                            return (currentCount || 0) + (isNowHosting ? 1 : -1);
-                        });
+                updateHostingStatusToFirebase(isNowHosting);
+            }
 
-                        if (isNowHosting) {
-                            countRef.onDisconnect().transaction((count) => (count || 0) - 1);
-                        } else {
-                            countRef.onDisconnect().cancel();
-                        }
-                    } catch (e) {
-                        console.warn("Firebase 連線異常，僅執行本機 UI 切換", e);
-                    }
+            function updateHostingStatusToFirebase(isHosting) {
+                if (!isFirebaseEnabled || typeof db === 'undefined') return;
+                
+                const deviceRef = db.ref(`${HOST_CLIENTS_PATH}/${state.deviceId}`);
+                
+                if (isHosting) {
+                    // 寫入詳細資訊
+                    const clientData = {
+                        name: state.identity.name || "未知",
+                        role: state.identity.role || "無身份",
+                        rank: state.identity.rank || 999,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    
+                    deviceRef.set(clientData);
+                    deviceRef.onDisconnect().remove(); // 斷線自動移除
+                } else {
+                    deviceRef.remove();
+                    deviceRef.onDisconnect().cancel();
+                }
+            }
+            
+            // v2.9.0 自動重連邏輯 (在 DOMContentLoaded 後段呼叫)
+            function autoReconnectHosting() {
+                if (localStorage.getItem('sw_is_hosting') === 'true') {
+                    // 恢復 UI 狀態
+                    state.stopwatch.isHosting = true;
+                    // 強制設定為託管模式
+                    state.stopwatch.settings.hostingMode = true;
+                    document.getElementById('toggle-hosting-mode').checked = true;
+                    
+                    updateStopwatchUIState();
+                    updateHostingStatusToFirebase(true); // 重新寫入 Firebase
+                    console.log("已自動恢復託管連線");
                 }
             }
 
@@ -1508,7 +1697,7 @@
                 }
             }
 
-            function listenForRemoteStart() {
+           function listenForRemoteStart() {
                 if (!isFirebaseEnabled) return;
                 
                 // 監聽發令訊號
@@ -1516,37 +1705,191 @@
                     const signal = snapshot.val();
                     if (!signal || !signal.timestamp) return;
 
-                    // 檢查訊號是否新鮮 (例如 5 秒內的訊號才有效，避免載入舊訊號誤啟動)
                     const now = Date.now();
-                    const delay = now - signal.timestamp; // 理論上是正數，但考慮時鐘差異
+                    const delay = now - signal.timestamp; 
 
-                    // 如果處於託管狀態，且收到新鮮訊號 -> 啟動
+                    // 託管中且訊號新鮮 -> 啟動
+                    // v2.9.3 修正：收到訊號後，除了本地開始，必須同步告訴資料庫「解除託管」
                     if (state.stopwatch.isHosting && Math.abs(delay) < 5000) {
-                        state.stopwatch.isHosting = false; // 解除託管
-                        // 取消 onDisconnect 事件，因為已經正式開始
-                        db.ref(HOST_COUNT_PATH).onDisconnect().cancel();
+                        state.stopwatch.isHosting = false; 
+                        localStorage.setItem('sw_is_hosting', 'false'); // 更新記憶狀態
                         
+                        // 關鍵修正：通知 Firebase 移除我的連線狀態
+                        updateHostingStatusToFirebase(false);
+                        updateStopwatchUIState(); // 更新介面顯示(隱藏託管按鈕)
+
                         startStopwatch();
-                        showToast('🚀 收到發令，計時開始！');
-                        
-                        // v2.8.0: 可選 - 若要極致精準，可使用 signal.timestamp 修正 startTime
-                        // state.stopwatch.startTime = signal.timestamp; // 需考慮 Server 與 Client 時間差，暫不啟用以免混亂
+                        showToast('🚀 收到發令，計時開始！(已解除託管)');
                     }
                 });
 
-                // 監聽託管人數 (給管理員看)
-                db.ref(HOST_COUNT_PATH).on('value', (snapshot) => {
-                    const count = snapshot.val() || 0;
-                    swHostNum.textContent = count < 0 ? 0 : count; // 防呆
+                
+                // v2.9.3 修正：監聽 Clients 僅更新數字與渲染內容，不自動彈出面板
+                db.ref(HOST_CLIENTS_PATH).on('value', (snapshot) => {
+                    const clients = snapshot.val() || {};
+                    const count = Object.keys(clients).length;
                     
-                    // 只有管理員模式才顯示人數
+                    // 1. 更新人數顯示 (v2.9.3 補回)
+                    const numDisplay = document.getElementById('sw-host-num');
+                    if(numDisplay) numDisplay.textContent = count;
+                    
+                    // 2. 只有管理員模式才處理 UI
                     if (state.isAdminAuthenticated) {
-                        swHostCountDisplay.classList.remove('hidden');
+                         // 顯示人數按鈕 (讓您可以看到有幾人)
+                         document.getElementById('sw-host-count-display').classList.remove('hidden');
+                         
+                         // 渲染列表內容 (但在背景執行，不強制移除 hidden)
+                         renderMiniDashboard(clients);
                     } else {
-                        swHostCountDisplay.classList.add('hidden');
+                         document.getElementById('sw-host-count-display').classList.add('hidden');
+                         document.getElementById('sw-mini-dashboard').classList.add('hidden');
                     }
                 });
             }
+// v2.9.3 新增：切換迷你面板顯示狀態
+            window.toggleMiniDashboard = function() {
+                const dashboard = document.getElementById('sw-mini-dashboard');
+                if (dashboard) {
+                    dashboard.classList.toggle('hidden');
+                }
+            };
+
+           
+            // v2.9.2 新增：渲染迷你儀表板 (條列式)
+            function renderMiniDashboard(clients) {
+                const container = document.getElementById('sw-mini-dashboard');
+                if(!container) return;
+
+                let html = '';
+                const activeClientIds = Object.keys(clients);
+
+                // 1. 顯示名次裁判 (1 ~ RankCount)
+                for(let i=1; i<=state.rankCount; i++) {
+                    const assignedName = (state.refereeConfig.assignments && state.refereeConfig.assignments[i]) ? state.refereeConfig.assignments[i] : null;
+                    if(!assignedName) continue; // 沒分配人就不顯示
+
+                    // 檢查是否在 clients 中 (利用 rank 判斷)
+                    const onlineClient = Object.values(clients).find(c => c.rank == i);
+                    
+                    if (onlineClient) {
+                         // 🟩 已託管
+                         html += `<div class="mini-status-row"><div class="flex items-center"><span class="mini-icon">🟩</span><span class="mini-role">第${i}名</span><span class="mini-name">${onlineClient.name}</span></div><span class="mini-state state-ready">已託管</span></div>`;
+                    } else {
+                         // ⬜ 未上線
+                         html += `<div class="mini-status-row"><div class="flex items-center"><span class="mini-icon opacity-50">⬜</span><span class="mini-role">第${i}名</span><span class="mini-name text-gray-400">${assignedName}</span></div><span class="mini-state state-offline">未上線</span></div>`;
+                    }
+                }
+
+                // 2. 顯示自訂人員 (總表等)
+                if (state.refereeConfig && state.refereeConfig.customRoles) {
+                    state.refereeConfig.customRoles.forEach(role => {
+                         const onlineClient = Object.values(clients).find(c => c.role === role.role && c.name === role.name);
+                         if (onlineClient) {
+                            html += `<div class="mini-status-row"><div class="flex items-center"><span class="mini-icon">🟩</span><span class="mini-role">${role.role}</span><span class="mini-name">${role.name}</span></div><span class="mini-state state-ready">已託管</span></div>`;
+                         } else {
+                            html += `<div class="mini-status-row"><div class="flex items-center"><span class="mini-icon opacity-50">⬜</span><span class="mini-role">${role.role}</span><span class="mini-name text-gray-400">${role.name}</span></div><span class="mini-state state-offline">未上線</span></div>`;
+                         }
+                    });
+                }
+                
+                // 3. 顯示未知人員 (非名單內但已託管)
+                Object.values(clients).forEach(c => {
+                    const isRank = c.rank <= state.rankCount;
+                    const isCustom = state.refereeConfig.customRoles && state.refereeConfig.customRoles.some(r => r.role === c.role && r.name === c.name);
+                    
+                    if(!isRank && !isCustom) {
+                         html += `<div class="mini-status-row"><div class="flex items-center"><span class="mini-icon">🟩</span><span class="mini-role">未知</span><span class="mini-name">${c.name}</span></div><span class="mini-state state-ready">已託管</span></div>`;
+                    }
+                });
+
+                if(html === '') html = '<div class="text-center text-gray-500 py-2">尚無裁判分配資料</div>';
+                container.innerHTML = html;
+            }
+			// v2.9.0 儀表板渲染邏輯
+            function renderHostDashboard(clients) {
+                const grid = document.getElementById('host-dashboard-grid');
+                if (!grid) return;
+                
+                // 準備資料結構
+                const dashboardData = [];
+                // 1. 預填 1~RankCount 的格子 (預設為未上線)
+                for(let i=1; i<=state.rankCount; i++) {
+                    const assignedName = (state.refereeConfig.assignments && state.refereeConfig.assignments[i]) 
+                                        ? state.refereeConfig.assignments[i] 
+                                        : "(未分配)";
+                    dashboardData.push({
+                        rank: i,
+                        role: `第 ${i} 名`,
+                        expectedName: assignedName,
+                        status: 'offline', // offline, active, unknown
+                        clientData: null
+                    });
+                }
+
+                // 2. 填入實際連線資料
+                Object.values(clients).forEach(client => {
+                    if (client.rank && client.rank <= state.rankCount) {
+                        // 這是名次裁判
+                        const idx = client.rank - 1;
+                        if(dashboardData[idx]) {
+                            dashboardData[idx].status = 'active';
+                            dashboardData[idx].clientData = client;
+                        }
+                    } else {
+                        // 這是未知或自訂裁判
+                        dashboardData.push({
+                            rank: 999,
+                            role: client.role || "未知身份",
+                            expectedName: client.name,
+                            status: 'unknown',
+                            clientData: client
+                        });
+                    }
+                });
+
+                // 3. 生成 HTML (使用無空白字串技巧)
+                let html = '';
+                dashboardData.forEach(item => {
+                    let cardClass = 'host-card';
+                    let dotHtml = '<div class="host-status-dot"></div>'; // 預設灰燈
+                    let statusText = '⚪ 未託管';
+                    let nameDisplay = item.expectedName;
+
+                    if (item.status === 'active') {
+                        cardClass += ' active';
+                        statusText = '🟢 已託管';
+                        // 如果實際簽到名字跟分配名字不同，顯示實際名字
+                        if(item.clientData.name !== item.expectedName) {
+                            nameDisplay = `${item.clientData.name}`;
+                        }
+                    } else if (item.status === 'unknown') {
+                        cardClass += ' unknown'; // 紫色
+                        statusText = '🟢 已託管 (非編制)';
+                    }
+
+                    // 組合卡片
+                    html += `<div class="${cardClass}"><div class="host-card-role">${item.role}</div><div class="host-card-name">${nameDisplay}</div><div class="flex items-center gap-2 mt-1 text-xs text-gray-500">${dotHtml}<span>${statusText}</span></div></div>`;
+                });
+                
+                grid.innerHTML = html;
+            }
+
+            // 全域函式供 HTML onclick 使用
+            window.openHostDashboard = function() {
+                const modal = document.getElementById('host-dashboard-modal');
+                modal.classList.remove('hidden');
+                modal.classList.add('visible');
+                // 觸發一次重繪 (讀取目前快取的值)
+                db.ref(HOST_CLIENTS_PATH).once('value', snap => {
+                    renderHostDashboard(snap.val() || {});
+                });
+            };
+
+            window.closeHostDashboard = function() {
+                const modal = document.getElementById('host-dashboard-modal');
+                modal.classList.remove('visible');
+                modal.classList.add('hidden');
+            };
             // --- v2.2.0 Logic: Single Import from Split List ---
             function showLapSelectionMenu() {
                 lapSelectionList.innerHTML = '';
@@ -1649,7 +1992,7 @@
 
             // --- Rendering ---
             function renderTable() { renderTableHeader(); renderTableBody(); }
-            function renderTableHeader() {
+          function renderTableHeader() {
                 tableHead.innerHTML = '';
                 const tr = document.createElement('tr');
                 
@@ -1659,32 +2002,47 @@
                 thIndex.className = 'py-4 px-4 text-center w-16';
                 tr.appendChild(thIndex);
                 
-                // 項目 + 自訂工作人員
+                // 項目 + 自訂工作人員 (v2.9.2 修改：讓自訂人員可點擊簽到)
                 const thName = document.createElement('th');
                 thName.className = 'py-4 px-4 text-left min-w-[250px]';
                 
                 let customRolesHtml = '';
                 if (state.refereeConfig && Array.isArray(state.refereeConfig.customRoles)) {
-                    // 生成自訂工作人員 HTML (壓縮格式)
-                    customRolesHtml = state.refereeConfig.customRoles.map(role => {
+                    customRolesHtml = state.refereeConfig.customRoles.map((role, idx) => {
                         if (!role.name) return '';
-                        return `<span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded border border-yellow-200 ml-2 whitespace-nowrap" title="${role.role}: ${role.name}"><span class="font-bold">${role.role}:</span><span>${role.name}</span></span>`;
+                        const roleId = `custom-${idx}`;
+                        // 檢查是否是自己
+                        const isSelf = (state.identity.id === roleId);
+                        const bgClass = isSelf ? 'bg-blue-600 text-white border-blue-500' : 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                        const titleText = isSelf ? '點擊可登出' : '點擊簽到';
+                        
+                        return `<span class="inline-flex items-center gap-1 ${bgClass} text-xs px-2 py-0.5 rounded border ml-2 whitespace-nowrap cursor-pointer transition hover:scale-105 select-none" title="${titleText}" onclick="handleIdentityCheckin('${roleId}', '${role.name}', '${role.role}')"><span class="font-bold">${role.role}:</span><span>${role.name}</span>${isSelf?'✔':''}</span>`;
                     }).join('');
                 }
 
-                // 設定 Header HTML (無空白節點)
                 thName.innerHTML = `<div class="flex justify-between items-center gap-2"><div class="flex-grow flex flex-wrap items-center"><span class="text-base">項目</span>${customRolesHtml}</div><button id="btn-open-actions-modal" class="header-action-btn no-print" title="操作選單">⚙️</button></div>`;
                 tr.appendChild(thName);
 
-                // 名次 + 裁判人員
+                // 名次 + 裁判人員 (v2.9.2 修改：onclick 參數傳入 rank 作為 id)
                 const assignments = (state.refereeConfig && state.refereeConfig.assignments) ? state.refereeConfig.assignments : {};
                 for (let i = 1; i <= state.rankCount; i++) {
                     const thRank = document.createElement('th');
                     thRank.className = 'py-4 px-3 text-center w-28 align-top';
                     
-                    const refereeName = assignments[i] ? `<div class="text-xs text-blue-100 font-normal mt-1 bg-blue-700 bg-opacity-50 rounded px-1 py-0.5 truncate border border-blue-500 border-opacity-30" title="計時裁判: ${assignments[i]}">👮 ${assignments[i]}</div>` : '';
+                    let refereeHtml = '';
+                    if (assignments[i]) {
+                        const name = assignments[i];
+                        // 檢查是否是自己 (比對 id)
+                        const isSelf = (state.identity.id == i);
+                        const signedInClass = isSelf ? 'signed-in' : '';
+                        const titleText = isSelf ? '點擊可登出' : '點擊此處簽到 (綁定此裝置)';
+                        
+                        refereeHtml = `<div class="referee-badge ${signedInClass} text-xs text-blue-100 font-normal mt-1 bg-blue-700 bg-opacity-50 rounded px-1 py-0.5 truncate border border-blue-500 border-opacity-30 select-none" 
+                            title="${titleText}"
+                            onclick="handleIdentityCheckin('${i}', '${name}', '第 ${i} 名')">👮 ${name}</div>`;
+                    }
                     
-                    thRank.innerHTML = `<div class="flex flex-col items-center justify-start h-full"><span>${i} 名</span>${refereeName}</div>`;
+                    thRank.innerHTML = `<div class="flex flex-col items-center justify-start h-full"><span>${i} 名</span>${refereeHtml}</div>`;
                     tr.appendChild(thRank);
                 }
                 tableHead.appendChild(tr);
@@ -2805,14 +3163,45 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
            swSettingsToggle.addEventListener('click', () => {
                 swSettingsMenu.classList.toggle('hidden');
             });
-            toggleSound.addEventListener('change', (e) => state.stopwatch.settings.sound = e.target.checked);
-            toggleVibration.addEventListener('change', (e) => state.stopwatch.settings.vibration = e.target.checked);
-            // v2.8.2 新增託管模式監聽
-            toggleHostingMode.addEventListener('change', (e) => {
-                state.stopwatch.settings.hostingMode = e.target.checked;
-                updateStopwatchUIState(); // 即時更新介面
+
+            // v2.9.0 新增：關閉設定選單按鈕
+            document.getElementById('sw-settings-close').addEventListener('click', () => {
+                swSettingsMenu.classList.add('hidden');
             });
-            toggleContinuous.addEventListener('change', toggleContinuousMode);
+
+            // v2.9.0 新增：重置身份按鈕
+            document.getElementById('btn-reset-identity').addEventListener('click', () => {
+                if(confirm('確定要重置身份嗎？')) resetIdentity();
+            });
+
+            // v2.9.0 修改：統一儲存設定到 LocalStorage (讓重整後設定不跑掉)
+            const saveSettingsToLocal = () => {
+                const settings = {
+                    sound: toggleSound.checked,
+                    vibration: toggleVibration.checked,
+                    hostingMode: toggleHostingMode.checked
+                };
+                // 同步更新當前 state
+                state.stopwatch.settings.sound = settings.sound;
+                state.stopwatch.settings.vibration = settings.vibration;
+                
+                localStorage.setItem('sw_settings', JSON.stringify(settings));
+            };
+
+            // 綁定音效與震動開關
+            toggleSound.addEventListener('change', saveSettingsToLocal);
+            toggleVibration.addEventListener('change', saveSettingsToLocal);
+
+            // v2.9.2 修正：切換開關僅控制按鈕顯示，不自動進入託管
+            toggleHostingMode.addEventListener('change', () => {
+                state.stopwatch.settings.hostingMode = toggleHostingMode.checked;
+                updateStopwatchUIState();
+                saveSettingsToLocal(); 
+            });
+
+            toggleContinuous.addEventListener('change', () => {
+                state.stopwatch.isContinuous = toggleContinuous.checked;
+            });
 
             // --- Init ---
             // --- v2.7.0 Logic: Qualification (計時擇優) ---
@@ -3040,11 +3429,12 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
                 listenForRemoteStart(); // v2.8.0 啟動託管監聽
-                showToast('v2.8.0 線上託管計時版載入完成', 'success');
+                showToast('v2.9.3 線上託管計時版載入完成', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
             }
+			autoReconnectHosting(); // 執行自動重連檢查
         });
     </script>
 </body>
