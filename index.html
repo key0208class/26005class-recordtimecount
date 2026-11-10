@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v2.9.6</title>
+    <title>蓮小終點計時組 v2.9.7</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -439,7 +439,7 @@
                         <span class="animate-pulse">📡</span> <span id="sw-host-num">0</span>人
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-[10px] text-gray-500">v2.9.6</span>
+                        <span class="text-[10px] text-gray-500">v2.9.7</span>
                         <div id="current-identity-display" class="sw-identity-tag empty" title="點擊重置身份">
                             未簽到
                         </div>
@@ -502,7 +502,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.9.6</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v2.9.7</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -3256,8 +3256,15 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             });
 
             toggleContinuous.addEventListener('change', () => {
-                state.stopwatch.isContinuous = toggleContinuous.checked;
-            });
+    // v2.9.7 計時中禁止切換模式，避免按鈕與紀錄狀態不一致
+    if (state.stopwatch.isRunning) {
+        toggleContinuous.checked = state.stopwatch.isContinuous; // 還原勾選
+        showToast('⚠️ 計時中無法切換模式，請先暫停或停止', 'error');
+        return;
+    }
+    state.stopwatch.isContinuous = toggleContinuous.checked;
+    updateStopwatchUIState(); // 同步刷新按鈕與分段清單
+});
 
             // --- Init ---
             // --- v2.7.0 Logic: Qualification (計時擇優) ---
@@ -3477,6 +3484,32 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                     renderTable();
                 });
                 db.ref(SNAPSHOTS_PATH).on('value', renderCloudSnapshots);
+                // ===== v2.9.7 託管斷線自動重新登記 =====
+                let everConnected = false;
+                let droppedAfterConnect = false;
+                const ensureHostingRegistered = () => {
+                    if (state.stopwatch.isHosting) updateHostingStatusToFirebase(true);
+                };
+                // (a) 連線恢復時立即重新登記（斷線後 Firebase 會自動移除託管節點）
+                db.ref('.info/connected').on('value', (snap) => {
+                    if (snap.val() === true) {
+                        const isRecovery = everConnected && droppedAfterConnect;
+                        everConnected = true;
+                        droppedAfterConnect = false;
+                        if (state.stopwatch.isHosting) {
+                            ensureHostingRegistered();
+                            if (isRecovery) showToast('📡 網路已恢復，已自動重新登記託管');
+                        }
+                    } else if (everConnected) {
+                        droppedAfterConnect = true;
+                    }
+                });
+                // (b) 心跳保活：每 20 秒補寫一次，避免舊連線被伺服器判定斷線後，把新登記的節點移除
+                setInterval(ensureHostingRegistered, 20000);
+                // (c) 切回前景或網路切換時立即補登
+                document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureHostingRegistered(); });
+                window.addEventListener('online', ensureHostingRegistered);
+
             }
 
             // v2.7.4 初始化拖移功能
@@ -3485,7 +3518,7 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             if (isFirebaseEnabled) {
                 setupFirebaseListeners();
                 listenForRemoteStart(); // v2.8.0 啟動託管監聽
-                showToast('v2.9.5 線上託管計時版載入完成', 'success');
+                showToast('v2.9.7 線上託管計時版載入完成', 'success');
             } else {
                 renderTable();
                 showToast('本機離線模式', 'error');
