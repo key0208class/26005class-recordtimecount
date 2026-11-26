@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓮小終點計時組 v3.0.0</title>
+    <title>蓮小終點計時組 v3.0.2</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -417,7 +417,29 @@
         }
 		/* v2.7.2 修正：確保確認視窗在最上層 (高於擇優視窗的 z-85) */
         #custom-confirm-modal { z-index: 100 !important; }
-    </style>
+    /* ===== v3.0.2 放大啟動鈕（僅於設定開啟時顯示）===== */
+.sw-big-start { width:100%;height:33vh;min-height:120px;margin-top:12px;border-radius:16px;border:3px solid #fde047;background-color:#10b981;color:white;font-size:2rem;font-weight:800;letter-spacing:0.08em;box-shadow:0 6px 14px rgba(0,0,0,0.35);cursor:pointer;transition:background-color 0.2s,transform 0.1s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.sw-big-start.hidden { display:none !important;}
+.sw-big-start:hover { filter:brightness(1.08);}
+.sw-big-start:active { transform:scale(0.98);}
+.sw-big-start.sw-big-go { background-color:#10b981;border-color:#fde047;}
+.sw-big-start.sw-big-admin { background-color:#dc2626;border-color:#fde047;}
+.sw-big-start.sw-big-pause { background-color:#f59e0b;border-color:#fef3c7;}
+.sw-big-start.sw-big-cancel { background-color:#8b5cf6;border-color:#ddd6fe;}
+.sw-main-panel.sw-big-mode { box-sizing:border-box;width:min(calc(100vw - 24px),420px);min-width:0;max-width:calc(100vw - 24px);}
+/* ===== v3.0.2 連續計時分割大按鈕（僅於「放大啟動鈕」開啟 + 連續計時 + 計時中顯示）===== */
+.sw-big-split { display:grid;grid-template-columns:2fr 1fr;gap:10px;width:100%;height:33vh;min-height:120px;margin-top:12px;}
+.sw-big-split.hidden { display:none !important;}
+.sw-big-split-lap,.sw-big-split-pause { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%;border-radius:16px;border:3px solid #fde047;color:white;font-weight:800;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.35);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform 0.1s,filter 0.2s;}
+.sw-big-split-lap { background-color:#2563eb;border-color:#93c5fd;min-width:0;}
+.sw-big-split-pause { background-color:#f59e0b;border-color:#fef3c7;min-width:0;}
+.sw-big-split-lap:hover,.sw-big-split-pause:hover { filter:brightness(1.08);}
+.sw-big-split-lap:active,.sw-big-split-pause:active { transform:scale(0.97);}
+.sw-split-icon { font-size:2.2rem;line-height:1;}
+.sw-big-split-pause .sw-split-icon { font-size:1.8rem;}
+.sw-split-text { font-size:1.25rem;letter-spacing:0.12em;}
+
+</style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 sm:p-8">
 
@@ -439,7 +461,7 @@
                         <span class="animate-pulse">📡</span> <span id="sw-host-num">0</span>人
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-[10px] text-gray-500">v3.0.0</span>
+                        <span class="text-[10px] text-gray-500">v3.0.2</span>
                         <div id="current-identity-display" class="sw-identity-tag empty" title="點擊重置身份">
                             未簽到
                         </div>
@@ -475,6 +497,11 @@
                     <label for="toggle-continuous" class="toggle-label"></label>
                 
                 </div>
+ <div class="sw-setting-item">
+ <span title="開啟後，面板下方會出現放大的啟動鍵（原小按鈕仍可使用）">🔘 放大啟動鈕</span>
+ <input type="checkbox" id="toggle-big-start" class="toggle-checkbox">
+ <label for="toggle-big-start" class="toggle-label"></label>
+ </div>
             </div>
 
             <div id="sw-laps-list" class="sw-laps-container hidden"></div>
@@ -491,6 +518,11 @@
                 <button id="sw-btn-lap" class="sw-btn sw-btn-lap hidden" title="計次 (Split)">⏱️</button>
                 <button id="sw-btn-stop" class="sw-btn sw-btn-stop hidden" title="停止">🛑</button>
             </div>
+ <button id="sw-btn-big-start" class="sw-big-start hidden" title="開始" data-action="start">▶️ 開始</button>
+ <div id="sw-big-split" class="sw-big-split hidden">
+ <button id="sw-big-lap" class="sw-big-split-lap" title="計次（連續計時）" aria-label="計次"><span class="sw-split-icon">⏱️</span><span class="sw-split-text">計次</span></button>
+ <button id="sw-big-pause" class="sw-big-split-pause" title="暫停" aria-label="暫停"><span class="sw-split-icon">⏸️</span><span class="sw-split-text">暫停</span></button>
+ </div>
         </div>
         
         <button id="sw-toggle-btn" class="sw-toggle-btn" title="開啟/關閉 碼表">
@@ -502,7 +534,7 @@
         
         <header class="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v3.0.0</span></h1>
+                <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🏅 蓮小終點計時組 <span class="text-sm font-normal text-gray-500 align-middle">v3.0.2</span></h1>
                 
                 <div id="connection-status-container" class="no-print">
                     <div class="connection-status status-disconnected">
@@ -1017,7 +1049,7 @@
                     settings: {
                         sound: false,
                         vibration: false,
-                        hostingMode: false 
+                        hostingMode:false,bigStart:false 
                     }
                 }
             };
@@ -1057,7 +1089,7 @@
                         // 同步 checkbox
                         document.getElementById('toggle-sound').checked = state.stopwatch.settings.sound;
                         document.getElementById('toggle-vibration').checked = state.stopwatch.settings.vibration;
-                        document.getElementById('toggle-hosting-mode').checked = state.stopwatch.settings.hostingMode;
+                        document.getElementById('toggle-hosting-mode').checked = state.stopwatch.settings.hostingMode;document.getElementById('toggle-big-start').checked = !!state.stopwatch.settings.bigStart;syncBigStartButton();
                         // 若設定為託管模式，且有身份，則自動嘗試重連託管
                         if(state.stopwatch.settings.hostingMode && localStorage.getItem('sw_is_hosting') === 'true') {
                             // 稍後在 DOMContentLoaded 底部執行 autoReconnect
@@ -1487,7 +1519,38 @@
                 updateStopwatchUIState();
             }
 
-           function updateStopwatchUIState() {
+           // ===== v3.0.2 放大啟動鈕：狀態同步（設定關閉時隱藏，不影響原本按鈕）=====
+function syncBigStartButton() {
+ const btn = document.getElementById('sw-btn-big-start');
+ const split = document.getElementById('sw-big-split');
+ const panel = document.getElementById('sw-panel');
+ if (!btn || !panel) return;
+ const sw = state.stopwatch;
+ const enabled = !!(sw.settings && sw.settings.bigStart);
+ panel.classList.toggle('sw-big-mode', enabled);
+ // v3.0.2：連續計時且計時中 → 左 2/3 計次、右 1/3 暫停；其餘情況維持原大鈕
+ const useSplit = enabled && sw.isContinuous && sw.isRunning;
+ if (split) split.classList.toggle('hidden', !useSplit);
+ if (!enabled || useSplit) { btn.classList.add('hidden'); return; }
+ let action = 'start', html = '▶️ 開始', title = '開始', cls = 'sw-big-go';
+ if (sw.isRunning) {
+  action = 'pause'; html = '⏸️ 暫停'; title = '暫停'; cls = 'sw-big-pause';
+ } else if (sw.elapsedTime === 0 && sw.isHosting) {
+  action = 'host-cancel'; html = '❌ 取消託管'; title = '取消託管'; cls = 'sw-big-cancel';
+ } else if (sw.elapsedTime === 0 && state.isAdminAuthenticated) {
+  html = '🔫 啟動全員碼表'; title = '啟動全員碼表'; cls = 'sw-big-admin';
+ } else if (sw.elapsedTime > 0) {
+  html = '▶️ 繼續'; title = '繼續';
+ }
+ btn.innerHTML = html;
+ btn.title = title;
+ btn.dataset.action = action;
+ btn.classList.remove('hidden','sw-big-go','sw-big-admin','sw-big-pause','sw-big-cancel','sw-hosting-pulse');
+ btn.classList.add(cls);
+ if (action === 'host-cancel') btn.classList.add('sw-hosting-pulse');
+}
+// ===== end v3.0.2 helpers =====
+function updateStopwatchUIState() {
                 // 1. 初始化：全部隱藏
                 const buttons = [swBtnStart, swBtnPause, swBtnLap, swBtnStop, swBtnHost];
                 buttons.forEach(btn => btn.classList.add('hidden'));
@@ -1562,7 +1625,9 @@
                         // 暫停時不顯示託管按鈕
                     }
                 }
-            }
+            
+ syncBigStartButton();
+ }
 
             function startStopwatch() {
                 if (!state.stopwatch.isRunning) {
@@ -3299,7 +3364,16 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
             // --- Stopwatch Event Listeners ---
            swToggleBtn.addEventListener('click', toggleStopwatchPanel);
             swBtnStart.addEventListener('click', handleStartCommand); // v2.8.0 改為處理發令邏輯
-            swBtnHost.addEventListener('click', toggleHosting);     // v2.8.0 託管按鈕
+            swBtnHost.addEventListener('click', toggleHosting);
+ const btnBigStart = document.getElementById('sw-btn-big-start');btnBigStart.addEventListener('click',() => {
+  const act = btnBigStart.dataset.action;
+  if (act === 'pause') pauseStopwatch();
+  else if (act === 'stop') stopStopwatch();
+  else if (act === 'host-cancel') toggleHosting();
+  else handleStartCommand();
+ });
+ document.getElementById('sw-big-lap').addEventListener('click',recordLap);
+ document.getElementById('sw-big-pause').addEventListener('click',pauseStopwatch);     // v2.8.0 託管按鈕
             swBtnPause.addEventListener('click', pauseStopwatch);
             swBtnReset.addEventListener('click', () => resetStopwatch(false)); // Manual click triggers confirm
             swBtnLap.addEventListener('click', recordLap); 
@@ -3336,7 +3410,7 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                 const settings = {
                     sound: toggleSound.checked,
                     vibration: toggleVibration.checked,
-                    hostingMode: toggleHostingMode.checked
+                    hostingMode:toggleHostingMode.checked,bigStart:document.getElementById('toggle-big-start').checked
                 };
                 // 同步更新當前 state
                 state.stopwatch.settings.sound = settings.sound;
@@ -3356,7 +3430,10 @@ function generateStaticHtml(reportTitle = "靜態報表") { // v2.7.5: 接收標
                 saveSettingsToLocal(); 
             });
 
-            toggleContinuous.addEventListener('change', () => {
+            document.getElementById('toggle-big-start').addEventListener('change',(e) => {
+ state.stopwatch.settings.bigStart = e.target.checked;syncBigStartButton();saveSettingsToLocal();
+ });
+ toggleContinuous.addEventListener('change', () => {
     // v2.9.7 計時中禁止切換模式，避免按鈕與紀錄狀態不一致
     if (state.stopwatch.isRunning) {
         toggleContinuous.checked = state.stopwatch.isContinuous; // 還原勾選
